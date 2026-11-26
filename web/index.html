@@ -1,0 +1,667 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>KlipKu 2 — Clip YouTube otomatis</title>
+<style>
+:root{--bg:#0f1115;--card:#181b22;--line:#2a2f3a;--txt:#e9ecf1;--mut:#9aa3b2;--acc:#ffd400;--acc2:#ff3d68;--ok:#3ddc84;--err:#ff5d5d}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--txt);font:15px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+header{display:flex;align-items:center;gap:12px;padding:14px 24px;border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--bg);z-index:5}
+header h1{font:800 22px system-ui;margin:0}
+header h1 span{color:var(--acc)}
+header small{color:var(--mut)}
+header .ver{margin-left:auto;color:var(--mut);font-size:12px;border:1px solid var(--line);border-radius:20px;padding:2px 10px}
+main{display:grid;grid-template-columns:minmax(0,1fr) 400px;gap:24px;padding:24px;max-width:1320px;margin:auto}
+@media(max-width:980px){main{grid-template-columns:1fr}}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px 20px;margin-bottom:18px}
+.card h2{margin:0 0 12px;font-size:16px;display:flex;align-items:center;gap:10px}
+.card h3{margin:16px 0 4px;font-size:14px;color:var(--acc)}
+.num{display:inline-grid;place-items:center;width:26px;height:26px;border-radius:50%;background:var(--acc);color:#000;font-weight:800;font-size:13px}
+label{display:block;color:var(--mut);font-size:13px;margin:10px 0 4px}
+label b{color:var(--txt);font-weight:600}
+input[type=text],input[type=password],select,textarea{width:100%;background:#0c0e12;border:1px solid var(--line);color:var(--txt);border-radius:9px;padding:9px 11px;font:inherit}
+textarea{min-height:70px;resize:vertical;font-size:13.5px}
+input:focus,select:focus,textarea:focus{outline:2px solid var(--acc);border-color:transparent}
+input[type=range]{width:100%;accent-color:var(--acc)}
+button{font:inherit;border:0;border-radius:9px;padding:9px 16px;cursor:pointer;background:#2a2f3a;color:var(--txt)}
+button:hover{filter:brightness(1.15)}
+button.pri{background:var(--acc);color:#000;font-weight:700}
+button.big{width:100%;padding:15px;font-size:17px;background:linear-gradient(90deg,var(--acc),#ffb300);color:#000;font-weight:800}
+button:disabled{opacity:.5;cursor:not-allowed}
+.row{display:flex;gap:10px;align-items:end;flex-wrap:wrap}
+.row>*{flex:1}
+.row>.fix{flex:0 0 auto}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:2px 14px}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:2px 14px}
+@media(max-width:700px){.grid3{grid-template-columns:1fr 1fr}}
+.hint{color:var(--mut);font-size:12.5px;margin-top:6px}
+.info{margin-top:10px;padding:10px 12px;border-radius:9px;background:#10141b;border:1px solid var(--line);display:none}
+.clip{display:grid;grid-template-columns:26px 1fr 1fr 2.2fr 34px;gap:8px;align-items:center;margin-bottom:8px}
+.clip b{color:var(--mut);text-align:center}
+.clip button{padding:8px 0;background:transparent;color:var(--mut);font-size:18px}
+.clip{grid-template-columns:26px 1fr 1fr 1.8fr 1.1fr 34px}
+.clip .ci input,.clip input.ci{border-color:#6b5a1a}
+.seg{display:inline-flex;background:#0c0e12;border:1px solid var(--line);border-radius:10px;padding:3px;gap:3px;flex-wrap:wrap}
+.seg button{background:transparent;padding:7px 12px;border-radius:7px;color:var(--mut)}
+.seg button.on{background:var(--acc);color:#000;font-weight:700}
+.seg button:disabled{opacity:.35}
+.check{display:flex;align-items:center;gap:8px;margin-top:10px;color:var(--txt)}
+.check input{width:18px;height:18px;accent-color:var(--acc)}
+#frameBox{position:relative;margin-top:12px;user-select:none;touch-action:none;display:none;border-radius:8px;overflow:hidden;border:1px solid var(--line)}
+#frameBox img{width:100%;display:block;pointer-events:none}
+#frameBox.draw{cursor:crosshair}
+.box{position:absolute;border:3px solid var(--acc);background:rgba(255,212,0,.15)}
+.box span{position:absolute;top:-24px;left:-3px;background:var(--acc);color:#000;font-size:12px;font-weight:700;padding:1px 7px;border-radius:5px 5px 0 0;white-space:nowrap}
+.box.face{border-color:#3ddc84;background:rgba(61,220,132,.12)}
+.box.face span{background:#3ddc84}
+aside{position:sticky;top:76px;align-self:start}
+#pv{width:100%;border-radius:14px;background:#000;display:block;border:1px solid var(--line)}
+.vl{display:flex;justify-content:space-between;font-size:13px;color:var(--mut)}
+.vl b{color:var(--txt);font-weight:600}
+.banner{background:#3a1b1b;border:1px solid #6b2a2a;color:#ffd0d0;padding:10px 14px;border-radius:10px;margin:0 0 18px;display:none}
+#job{display:none}
+.bar{height:12px;background:#0c0e12;border-radius:8px;overflow:hidden;border:1px solid var(--line)}
+.bar i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--acc),var(--acc2));transition:width .4s}
+#stage{margin:10px 0 0;font-weight:600}
+.err{white-space:pre-wrap;background:#2a1212;border:1px solid #6b2a2a;color:#ffc9c9;padding:12px;border-radius:9px;margin-top:12px;font-size:13px;display:none}
+.warn{background:#2d2610;border:1px solid #6b5a1a;color:#ffe9a8;padding:8px 12px;border-radius:9px;margin-top:10px;font-size:13px}
+.note{background:#12261b;border:1px solid #1f5a39;color:#b8f5d0;padding:6px 12px;border-radius:9px;margin-top:8px;font-size:12.5px}
+#rvBox{display:none;margin-top:14px}
+.sr{display:grid;grid-template-columns:92px 1fr;gap:8px;align-items:center;margin-bottom:6px}
+.sr code{color:var(--mut);font-size:12px}
+#results{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:14px;margin-top:14px}
+.res{background:#10141b;border:1px solid var(--line);border-radius:12px;padding:10px}
+.res video{width:100%;background:#000;border-radius:8px}
+.res .n{font-size:12.5px;word-break:break-all;margin:6px 0}
+.res a{display:inline-block;margin-right:6px;color:var(--acc);font-size:13px}
+.muted{color:var(--mut)}
+.steps{margin-top:12px;display:grid;gap:6px}
+.stp{display:grid;grid-template-columns:24px 1fr 120px 56px;gap:10px;align-items:center;padding:8px 10px;border-radius:9px;background:#10141b;border:1px solid var(--line)}
+.stp.jalan{border-color:var(--acc);background:#1d1a0c}
+.stp.selesai{opacity:.75}
+.stp .ic{font-size:16px;text-align:center}
+.stp .lb{font-size:13.5px}
+.stp .lb small{display:block;color:var(--mut);font-size:12px}
+.stp .mb{height:7px;background:#0c0e12;border-radius:5px;overflow:hidden;border:1px solid var(--line)}
+.stp .mb i{display:block;height:100%;background:linear-gradient(90deg,var(--acc),var(--acc2));transition:width .4s}
+.stp .pc{font:700 14px ui-monospace,Consolas,monospace;text-align:right}
+.jobhead{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
+.jobhead .big{font:800 26px ui-monospace,Consolas,monospace;color:var(--acc)}
+.pill{display:inline-block;font-size:11.5px;padding:1px 8px;border-radius:20px;background:#2a2f3a;color:var(--mut);margin-left:6px}
+details{margin-top:8px}
+summary{cursor:pointer;color:var(--mut);font-size:13px}
+#logoThumb{max-height:44px;max-width:120px;display:none;border:1px dashed var(--line);border-radius:6px;padding:2px;background:repeating-conic-gradient(#222 0 25%,#333 0 50%) 0 0/12px 12px}
+.only{display:none}
+</style>
+</head>
+<body>
+<header><h1>Klip<span>Ku</span> 2</h1><small>link YouTube + menit → clip siap upload</small><span class="ver" id="ver">v?</span></header>
+<main>
+<section>
+  <div class="banner" id="banner"></div>
+
+  <div class="card">
+    <h2><span class="num">1</span>Link YouTube</h2>
+    <div class="row">
+      <input type="text" id="url" placeholder="https://www.youtube.com/watch?v=... (VOD live yang sudah selesai)">
+      <button class="pri fix" id="btnLoad">Muat</button>
+    </div>
+    <div class="info" id="vinfo"></div>
+  </div>
+
+  <div class="card">
+    <h2><span class="num">2</span>Menit yang mau di-clip</h2>
+    <div id="clipsWrap">
+    <div class="clip muted" style="font-size:12.5px;margin-bottom:4px"><span></span><span>Mulai</span><span>Selesai</span><span>Judul hook (opsional)</span><span class="ci">⏪ Intro dari menit (opsional)</span><span></span></div>
+    <div id="clips"></div>
+    </div>
+    <button id="btnAdd">+ Tambah clip</button>
+    <div class="hint">Format waktu: <b>1:23:45</b> atau <b>23:45</b>. Maksimal 3 menit per clip.</div>
+  </div>
+
+  <div class="card">
+    <h2><span class="num">3</span>Format & kamera</h2>
+    <label>Rasio video</label>
+    <div class="seg" id="segAspect">
+      <button data-v="9:16" class="on">9:16 (TikTok/Shorts/Reels)</button>
+      <button data-v="16:9">16:9 (YouTube landscape)</button>
+      <button data-v="1:1">1:1 (kotak)</button>
+    </div>
+    <label>Mode kamera</label>
+    <div class="seg" id="segLayout">
+      <button data-v="static" class="on">🎯 Tengah / zoom manual</button>
+      <button data-v="ai">🤖 AI Kamera (otomatis)</button>
+      <button data-v="facecam">🎮 Facecam + Gameplay</button>
+    </div>
+    <div class="row" style="margin-top:12px">
+      <button class="fix" id="btnFrame">📸 Ambil gambar dari menit mulai clip 1</button>
+      <span class="hint" id="frameHint">Untuk preview yang akurat.</span>
+    </div>
+    <div id="frameBox"><img id="frame" alt=""><div id="boxes"></div></div>
+
+    <div class="only" data-show="static">
+      <div class="grid2">
+        <div><label>Zoom <b id="vZoom"></b></label><input type="range" id="zoom" min="0.5" max="3" step="0.05" value="1"></div>
+        <div><label>Latar kosong</label><select id="bg"><option value="blur">Blur (dari video)</option><option value="hitam">Hitam</option></select></div>
+        <div><label>Geser kiri ↔ kanan</label><input type="range" id="pan_x" min="0" max="1" step="0.01" value="0.5"></div>
+        <div><label>Geser atas ↕ bawah</label><input type="range" id="pan_y" min="0" max="1" step="0.01" value="0.5"></div>
+      </div>
+    </div>
+
+    <div class="only" data-show="ai">
+      <div class="note">AI akan mendeteksi wajah, menebak siapa yang sedang bicara/bereaksi, lalu menggerakkan kamera sendiri: mengikuti goyangan kepala (stabilizer), pindah ke orang yang ketawa/heboh, lalu balik ke karakter utama.</div>
+      <div class="grid3">
+        <div><label>Zoom kamera AI <b id="vAiz"></b></label><input type="range" id="ai_zoom" min="1" max="2.5" step="0.05" value="1"></div>
+        <div><label>Gaya kamera</label><select id="ai_style"><option value="halus">Halus (sinematik)</option><option value="dinamis">Dinamis (cepat, ala TikTok)</option></select></div>
+        <div><label>Saat pindah orang</label><select id="ai_transition"><option value="geser">Geser cepat (whip pan)</option><option value="potong">Potong langsung (cut)</option></select></div>
+      </div>
+    </div>
+
+    <div class="only" data-show="facecam">
+      <div class="hint">Klik "Ambil gambar", lalu <b>tarik kotak</b> di facecam streamer. Posisi tersimpan per channel.</div>
+      <div class="grid2" style="margin-top:4px">
+        <div><label>Ukuran facecam <b id="vCam"></b></label><input type="range" id="cam_pct" min="25" max="60" value="42"></div>
+        <div><label>Gameplay</label><div class="seg" id="segGame"><button data-v="isi" class="on">Isi penuh (zoom)</button><button data-v="utuh">Utuh + blur</button></div></div>
+        <div class="gz"><label>Zoom gameplay <b id="vGz"></b></label><input type="range" id="game_zoom" min="1" max="2.5" step="0.05" value="1"></div>
+        <div class="gz"><label>Geser gameplay kiri ↔ kanan</label><input type="range" id="game_x" min="0" max="1" step="0.01" value="0.5"></div>
+        <div class="gz"><label>Geser gameplay atas ↕ bawah</label><input type="range" id="game_y" min="0" max="1" step="0.01" value="0.5"></div>
+        <div><label class="check"><input type="checkbox" id="divider" checked> Garis pemisah putih</label></div>
+      </div>
+    </div>
+    <div class="grid3">
+      <div><label>FPS hasil</label><select id="fps"><option value="30">30 fps (lebih cepat render)</option><option value="60">60 fps (lebih mulus)</option><option value="src">Ikuti video asli</option></select></div>
+      <div><label>Mesin render</label><select id="encoder"><option value="auto">Otomatis — tercepat (GPU kalau ada)</option><option value="cpu">CPU saja (x264)</option></select></div>
+    </div>
+    <div class="hint" id="encInfo" style="margin-top:8px">mengecek mesin render...</div>
+  </div>
+
+  <div class="card">
+    <h2><span class="num">4</span>Subtitle</h2>
+    <label class="check"><input type="checkbox" id="subs" checked> Pakai subtitle otomatis</label>
+    <div id="subOpts">
+      <label>Gaya</label>
+      <div class="seg" id="segStyle">
+        <button data-v="highlight" class="on">Kata menyala</button>
+        <button data-v="muncul">Muncul per kata</button>
+        <button data-v="kotak">Kata berbingkai</button>
+        <button data-v="simple">Simpel</button>
+      </div>
+      <label>Font <span class="pill" id="fontCount"></span></label>
+      <div class="row"><input type="text" id="fontSearch" placeholder="🔎 cari font... (contoh: mont, anton, impact)"><button class="fix" id="btnFontRefresh" title="baca ulang font di komputer">↻</button></div>
+      <select id="font" size="6" style="margin-top:6px"></select>
+      <div class="hint">Mau font lain (The Bold Font, Komika Axis, dll)? Install di komputer atau taruh di folder <b>fonts\tambahan</b>, lalu klik ↻.</div>
+      <div class="grid3">
+        <div><label>Warna teks</label><select id="sub_text"><option value="putih">Putih</option><option value="kuning">Kuning</option><option value="hitam">Hitam</option></select></div>
+        <div><label>Warna kata aktif</label><select id="sub_color"><option value="kuning">Kuning</option><option value="hijau">Hijau</option><option value="merah">Merah</option><option value="biru">Biru</option><option value="pink">Pink</option><option value="oranye">Oranye</option><option value="putih">Putih</option></select></div>
+        <div><label>Posisi <b id="vPos"></b></label><input type="range" id="sub_y_pct" min="0" max="95" value="0"></div>
+        <div><label>Ukuran <b id="vSz"></b></label><input type="range" id="sub_size" min="40" max="140" value="80"></div>
+        <div><label>Tebal garis tepi <b id="vOl"></b></label><input type="range" id="sub_outline" min="0" max="20" value="9"></div>
+        <div><label>Kata per baris <b id="vPl"></b></label><input type="range" id="per_line" min="1" max="6" value="3"></div>
+      </div>
+      <label class="check"><input type="checkbox" id="uppercase" checked> HURUF BESAR</label>
+
+      <h3>Mesin subtitle</h3>
+      <div class="grid2">
+        <div><label>Diproses di</label><select id="engine">
+          <option value="lokal">Laptop sendiri (GPU NVIDIA / CPU)</option>
+          <option value="groq">Groq online — super cepat ⚡ (gratis, perlu API key)</option></select></div>
+        <div class="groqkey"><label>API key Groq <span id="groqState" class="pill"></span></label><input type="password" id="groq_key" placeholder="gsk_... (gratis di console.groq.com)"></div>
+      </div>
+      <div class="hint groqkey">Groq menjalankan Whisper large-v3 di server mereka: clip 1 menit biasanya selesai dalam beberapa detik. Kalau Groq gagal/limit, KlipKu otomatis pakai mesin di laptop.</div>
+      <div class="grid2">
+        <div><label>Model</label><select id="model">
+          <option value="small">Cepat — small (laptop biasa)</option>
+          <option value="medium">Seimbang — medium</option>
+          <option value="large-v3-turbo" selected>Akurat — large-v3-turbo ⭐</option>
+          <option value="large-v3">Paling akurat — large-v3 (berat)</option></select></div>
+        <div><label>Bahasa streamer</label><select id="lang"><option value="id">Indonesia</option><option value="en">English</option><option value="auto">Deteksi otomatis</option></select></div>
+      </div>
+      <label>Kata khusus channel ini (nama, kampus, game, slang) — dipakai Whisper + koreksi bunyi otomatis</label>
+      <input type="text" id="prompt" placeholder="contoh: Prasmul, Bigmo, Windah Basudara, UTBK, wkwk">
+      <div class="hint">Contoh: kalau ditulis "Prasmul", hasil salah dengar seperti "plasmool" / "plas mul" otomatis diganti jadi "Prasmul". Tersimpan per channel.</div>
+      <label>Kamus ganti (satu per baris: <b>salah = benar</b>) — berlaku untuk semua video</label>
+      <textarea id="rules" placeholder="ff = Free Fire&#10;ml = Mobile Legends"></textarea>
+      <div class="grid2">
+        <div><label>Koreksi AI (opsional, paling akurat)</label><select id="ai_fix">
+          <option value="off">Mati</option>
+          <option value="gemini">Gemini — ikut MENDENGARKAN audio ⭐</option>
+          <option value="claude">Claude — koreksi dari konteks teks</option></select></div>
+        <div class="aikey"><label>API key <span id="keyState" class="pill"></span></label><input type="password" id="ai_key" placeholder="tempel API key (disimpan di komputer ini)"></div>
+      </div>
+      <details class="aikey"><summary>Pengaturan lanjutan koreksi AI</summary>
+        <label>Nama model (kosongkan = bawaan)</label><input type="text" id="ai_model" placeholder="gemini-flash-latest / claude-haiku-5-5">
+        <div class="hint">API key Gemini gratis bisa dibuat di Google AI Studio. API key Claude dari console Anthropic (berbayar per pemakaian, terpisah dari langganan Claude).</div>
+      </details>
+      <label class="check"><input type="checkbox" id="review" checked> Cek & edit subtitle dulu sebelum render</label>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2><span class="num">5</span>Watermark, logo & hook</h2>
+    <div class="grid2">
+      <div><label>Teks watermark</label><input type="text" id="wm_text" placeholder="@akunclipkamu"></div>
+      <div><label>Gaya watermark</label><select id="wm_mode">
+        <option value="pojok">Di pojok (kecil)</option>
+        <option value="diagonal">Diagonal besar transparan</option>
+        <option value="pola">Pola berulang (anti-colong)</option>
+        <option value="pindah">Pindah-pindah pojok (anti-crop)</option>
+        <option value="belakang">Di belakang video (layer bawah)</option></select></div>
+    </div>
+    <div class="grid3">
+      <div class="wmpos"><label>Posisi</label><select id="wm_pos">
+        <option value="kanan-atas">Kanan atas</option><option value="kiri-atas">Kiri atas</option>
+        <option value="kanan-bawah">Kanan bawah</option><option value="kiri-bawah">Kiri bawah</option>
+        <option value="atas-tengah">Atas tengah</option><option value="bawah-tengah">Bawah tengah</option><option value="tengah">Tengah</option></select></div>
+      <div><label>Transparansi (opacity) <b id="vOp"></b></label><input type="range" id="wm_opacity" min="5" max="100" value="70"></div>
+      <div><label>Ukuran <b id="vWs"></b></label><input type="range" id="wm_size" min="16" max="220" value="40"></div>
+      <div class="wmang"><label>Kemiringan <b id="vAng"></b></label><input type="range" id="wm_angle" min="-90" max="90" value="30"></div>
+      <div class="wmevery"><label>Pindah tiap <b id="vEv"></b></label><input type="range" id="wm_every" min="2" max="15" value="5"></div>
+      <div><label>Warna</label><select id="wm_color"><option value="putih">Putih</option><option value="hitam">Hitam</option><option value="kuning">Kuning</option><option value="merah">Merah</option><option value="biru">Biru</option></select></div>
+      <div><label>Font watermark</label><select id="wm_font"></select></div>
+    </div>
+    <div class="hint" id="wmHint"></div>
+
+    <h3>Logo (gambar PNG)</h3>
+    <div class="row">
+      <label class="check fix" style="margin:0"><input type="checkbox" id="logo_on"> Pakai logo</label>
+      <input class="fix" type="file" id="logoFile" accept="image/*">
+      <img id="logoThumb" class="fix" alt="logo">
+      <button class="fix" id="btnLogoDel">Hapus</button>
+    </div>
+    <div class="grid3">
+      <div><label>Posisi logo</label><select id="logo_pos">
+        <option value="kanan-atas">Kanan atas</option><option value="kiri-atas">Kiri atas</option>
+        <option value="kanan-bawah">Kanan bawah</option><option value="kiri-bawah">Kiri bawah</option>
+        <option value="atas-tengah">Atas tengah</option><option value="bawah-tengah">Bawah tengah</option><option value="tengah">Tengah</option></select></div>
+      <div><label>Ukuran logo <b id="vLs"></b></label><input type="range" id="logo_size" min="5" max="60" value="18"></div>
+      <div><label>Opacity logo <b id="vLo"></b></label><input type="range" id="logo_opacity" min="10" max="100" value="90"></div>
+    </div>
+
+    <h3>Judul hook</h3>
+    <div class="grid3">
+      <div><label>Gaya hook</label><select id="hook_box"><option value="putih">Bingkai putih (teks hitam)</option><option value="hitam">Bingkai hitam (teks putih)</option><option value="polos">Polos — teks saja</option></select></div>
+      <div class="hkpolos"><label>Warna teks hook</label><select id="hook_color"><option value="putih">Putih</option><option value="kuning">Kuning</option><option value="hitam">Hitam</option><option value="merah">Merah</option><option value="biru">Biru</option><option value="hijau">Hijau</option></select></div>
+      <div class="hkpolos"><label>Garis tepi hook <b id="vHo"></b></label><input type="range" id="hook_outline" min="0" max="20" value="10"></div>
+      <div><label>Ukuran hook <b id="vHs"></b></label><input type="range" id="hook_size" min="36" max="110" value="58"></div>
+      <div><label>Font hook</label><select id="hook_font"></select></div>
+      <div class="hksecs"><label>Hook tampil</label><select id="hook_secs"><option value="0">Sepanjang video</option><option value="3">3 detik pertama</option><option value="5">5 detik pertama</option></select></div>
+    </div>
+    <h3>Intro hook + ulang dari awal</h3>
+    <label class="check"><input type="checkbox" id="intro_on"> Putar potongan + judul hook dulu, lalu video <b>diulang dari awal</b> tanpa judul hook</label>
+    <div class="grid3 intro">
+      <div><label>Durasi intro</label><select id="intro_len"><option value="2">2 detik</option><option value="3" selected>3 detik</option><option value="4">4 detik</option><option value="5">5 detik</option><option value="7">7 detik</option></select></div>
+      <div><label>Intro diambil dari</label><div class="hint" style="margin-top:6px">👆 isi kolom <b>"⏪ Intro dari (menit)"</b> di langkah 2, per clip (misal <b>1:23:40</b>)</div></div>
+      <div><label>Efek saat diulang</label><select id="intro_fx"><option value="none">Tanpa efek (langsung)</option><option value="flash">Kilat putih ⚡</option><option value="rewind">Rewind cepat ⏪</option></select></div>
+    </div>
+    <div class="hint intro">Contoh: clip 1:23:10–1:24:00, judul hook "MOOK YA ALLAH", intro dari <b>1:23:41</b> (momen pas kejadian) → penonton lihat 3 detik momen itu + judul hook, lalu video mulai lagi dari 1:23:10 tanpa judul. Kosongkan = 3 detik pertama clip. Boleh juga tulis detik di dalam clip (misal 0:31).</div>
+    <h3>Sumber</h3>
+    <label class="check"><input type="checkbox" id="credit" checked> Tulis "Sumber: channel"</label>
+  </div>
+
+  <button class="big" id="btnGo">🎬 Buat Clip</button>
+
+  <div class="card" id="job" style="margin-top:18px">
+    <div class="jobhead"><h2 style="margin:0">Proses <span class="pill" id="clipNo"></span></h2><span class="big" id="pctAll">0%</span></div>
+    <div class="bar" style="margin-top:8px"><i id="barFill"></i></div>
+    <div id="stage">...</div>
+    <div class="hint" id="elapsed"></div>
+    <div class="steps" id="steps"></div>
+    <div id="notes"></div>
+    <div id="warns"></div>
+    <div class="err" id="err"></div>
+    <div id="rvBox">
+      <div class="warn">Periksa tulisan subtitle. Perbaiki kata yang salah, kosongkan baris untuk menghapus. Waktunya otomatis.</div>
+      <div id="rvRows" style="margin-top:10px"></div>
+      <button class="pri" id="btnRv">✅ Lanjut Render</button>
+      <button id="btnRvSkip">Pakai apa adanya</button>
+    </div>
+    <div id="results"></div>
+    <div style="margin-top:12px;display:none" id="resActions"><button id="btnFolder">📂 Buka folder hasil</button></div>
+  </div>
+</section>
+
+<aside>
+  <div class="card" style="padding:14px">
+    <div class="vl" style="margin-bottom:8px"><b>Preview <span id="pvAspect">9:16</span></b><span id="pvNote">perkiraan hasil</span></div>
+    <canvas id="pv" width="540" height="960"></canvas>
+    <div class="hint" id="pvHint">Klik "Ambil gambar" di langkah 3 supaya preview pakai gambar asli video.</div>
+  </div>
+</aside>
+</main>
+
+<script>
+const $ = s => document.querySelector(s);
+const $$ = s => [...document.querySelectorAll(s)];
+const ASPECT = {"9:16":[1080,1920],"16:9":[1920,1080],"1:1":[1080,1080]};
+const st = {aspect:"9:16", layout:"static", game_mode:"isi", sub_style:"highlight", cam:null, faces:[], info:null, img:null, job:null, reviewChunks:null, fonts:[], loaded:{}, logoImg:null};
+let W=1080, H=1920;
+
+async function api(path, body){
+  const r = await fetch(path, body===undefined?{}:{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
+  let d; try{ d = await r.json(); }catch(e){ throw new Error("Server tidak merespons. Pastikan jendela KlipKu masih terbuka."); }
+  if(d.ok===false || (!r.ok && d.error)) throw new Error(d.error||"Gagal");
+  return d;
+}
+function esc(s){ return String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+function seg(id, key, cb){
+  $$(id+" button").forEach(b=>b.onclick=()=>{ if(b.disabled) return;
+    $$(id+" button").forEach(x=>x.classList.remove("on")); b.classList.add("on"); st[key]=b.dataset.v; cb&&cb(); refresh(); });
+}
+function setSeg(id,v){ const b=document.querySelector(`${id} button[data-v="${v}"]`); if(b&&!b.disabled) b.click(); }
+seg("#segAspect","aspect",()=>{ [W,H]=ASPECT[st.aspect]; const fb=document.querySelector('#segLayout button[data-v="facecam"]'); fb.disabled=st.aspect!=="9:16"; if(fb.disabled&&st.layout==="facecam") setSeg("#segLayout","static"); });
+seg("#segLayout","layout",()=>{ $$(".only").forEach(e=>e.style.display=e.dataset.show===st.layout?"block":"none"); drawBoxes(); });
+seg("#segGame","game_mode",()=>$$(".gz").forEach(e=>e.style.display=st.game_mode==="isi"?"":"none"));
+seg("#segStyle","sub_style");
+
+// ---------- clips
+function addClip(c={}){
+  const d=document.createElement("div"); d.className="clip";
+  d.innerHTML=`<b></b><input type="text" class="cs" placeholder="1:23:10" value="${esc(c.start||"")}"><input type="text" class="ce" placeholder="1:23:55" value="${esc(c.end||"")}"><input type="text" class="ct" placeholder="contoh: MOOKK YA ALLAH" value="${esc(c.title||"")}"><input type="text" class="ci" placeholder="contoh 1:23:41" value="${esc(c.intro||"")}"><button title="hapus">×</button>`;
+  d.querySelector("button").onclick=()=>{ d.remove(); renum(); };
+  d.querySelector(".ct").oninput=draw;
+  d.querySelector("input.ci").oninput=()=>{ if(d.querySelector("input.ci").value.trim()&&!$("#intro_on").checked){ $("#intro_on").checked=true; refresh(); } };
+  $("#clips").appendChild(d); renum();
+}
+function renum(){ $$(".clip b").forEach((b,i)=>b.textContent=i+1); if(!document.querySelector("#clips .clip")) addClip(); }
+function clips(){ return $$("#clips .clip").map(d=>({start:d.querySelector(".cs").value.trim(),end:d.querySelector(".ce").value.trim(),title:d.querySelector(".ct").value.trim(),intro:d.querySelector(".ci").value.trim()})).filter(c=>c.start||c.end); }
+$("#btnAdd").onclick=()=>addClip(); addClip();
+
+// ---------- labels + visibility
+const lab=[["#zoom","#vZoom",v=>(+v).toFixed(2)+"×"],["#ai_zoom","#vAiz",v=>(+v).toFixed(2)+"×"],["#cam_pct","#vCam",v=>v+"%"],["#game_zoom","#vGz",v=>(+v).toFixed(2)+"×"],
+  ["#sub_size","#vSz",v=>v],["#sub_outline","#vOl",v=>v],["#per_line","#vPl",v=>v],["#hook_size","#vHs",v=>v],["#sub_y_pct","#vPos",v=>+v?v+"%":"otomatis"],
+  ["#wm_opacity","#vOp",v=>v+"%"],["#wm_size","#vWs",v=>v],["#wm_angle","#vAng",v=>v+"°"],["#wm_every","#vEv",v=>v+" detik"],["#logo_size","#vLs",v=>v+"%"],["#logo_opacity","#vLo",v=>v+"%"],["#hook_outline","#vHo",v=>v]];
+function refresh(){
+  lab.forEach(([i,o,f])=>$(o).textContent=f($(i).value));
+  const m=$("#wm_mode").value;
+  $(".wmpos").style.display=m==="pojok"?"":"none"; $(".wmang").style.display=(m==="diagonal"||m==="pola"||m==="belakang")?"":"none"; $(".wmevery").style.display=m==="pindah"?"":"none";
+  $("#wmHint").textContent = m==="belakang" ? "Watermark ditaruh di layer BELAKANG video (di area blur). Paling cocok di mode Tengah dengan zoom < 1,9× pada 9:16, supaya ada area blur yang terlihat." : m==="pola" ? "Teks diulang miring di seluruh layar — susah dihapus/di-crop orang lain. Pakai opacity rendah (10–20%)." : m==="pindah" ? "Watermark berpindah pojok tiap beberapa detik, jadi tidak bisa di-crop/blur di satu tempat." : m==="diagonal" ? "Satu teks besar miring di tengah, transparan — seperti watermark dokumen." : "";
+  $$(".aikey").forEach(e=>e.style.display=$("#ai_fix").value==="off"?"none":"");
+  $$(".hkpolos").forEach(e=>e.style.display=$("#hook_box").value==="polos"?"":"none");
+  $$(".intro").forEach(e=>e.style.display=$("#intro_on").checked?"":"none");
+  $("#clipsWrap").classList.toggle("intro",$("#intro_on").checked);
+  $$(".groqkey").forEach(e=>e.style.display=$("#engine").value==="groq"?"":"none");
+  $("#groqState").textContent=keysSaved.groq?"✅ tersimpan — kosongkan untuk tetap pakai":"belum ada";
+  $(".hksecs").style.display=$("#intro_on").checked?"none":"";
+  $("#subOpts").style.display=$("#subs").checked?"":"none";
+  $("#pvAspect").textContent=st.aspect;
+  const cv=$("#pv"); const s=Math.min(540/W, 960/H)*(W>H?1.4:1); if(cv.width!==Math.round(W*s)){ cv.width=Math.round(W*s); cv.height=Math.round(H*s); }
+  updateKeyState(); loadFonts().then(draw); draw();
+}
+document.addEventListener("input",e=>{ if(e.target.closest("main")&&e.target.id!=="fontSearch") refresh(); });
+document.addEventListener("change",e=>{ if(e.target.closest("main")) refresh(); });
+
+// ---------- fonts
+let keysSaved={};
+function updateKeyState(){ const p=$("#ai_fix").value; $("#keyState").textContent = keysSaved[p] ? "✅ tersimpan — kosongkan untuk tetap pakai" : "belum ada"; }
+function fillFontSelects(){
+  const q=$("#fontSearch").value.trim().toLowerCase();
+  const cur=$("#font").value, curW=$("#wm_font").value;
+  const groups={};
+  st.fonts.forEach(f=>{ if(q && !f.name.toLowerCase().includes(q)) return; (groups[f.group]=groups[f.group]||[]).push(f); });
+  const html=Object.entries(groups).map(([g,fs])=>`<optgroup label="${esc(g)} (${fs.length})">`+fs.map(f=>`<option value="${f.id}">${esc(f.name)}</option>`).join("")+`</optgroup>`).join("");
+  $("#font").innerHTML=html; if(cur && $("#font").querySelector(`option[value="${cur}"]`)) $("#font").value=cur;
+  if(!$("#font").value && $("#font").options.length) $("#font").selectedIndex=0;
+  $("#wm_font").innerHTML=`<option value="">(sama dengan subtitle)</option>`+st.fonts.map(f=>`<option value="${f.id}">${esc(f.name)}</option>`).join("");
+  $("#wm_font").value=curW||"";
+  const curH=$("#hook_font").value;
+  $("#hook_font").innerHTML=`<option value="">(sama dengan subtitle)</option>`+st.fonts.map(f=>`<option value="${f.id}">${esc(f.name)}</option>`).join("");
+  $("#hook_font").value=curH||"";
+  $("#fontCount").textContent=st.fonts.length+" font";
+}
+$("#fontSearch").oninput=()=>{ fillFontSelects(); };
+$("#btnFontRefresh").onclick=async()=>{ $("#btnFontRefresh").disabled=true; const d=await api("/api/fonts?refresh=1"); st.fonts=d.fonts; fillFontSelects(); $("#btnFontRefresh").disabled=false; refresh(); };
+async function loadFont(id){
+  if(!id||st.loaded[id]) return; st.loaded[id]="loading";
+  try{ const ff=new FontFace("kf_"+id,`url(/fontfile/${id})`); await ff.load(); document.fonts.add(ff); st.loaded[id]=true; }catch(e){ st.loaded[id]="fail"; }
+}
+async function loadFonts(){ await Promise.all([loadFont($("#font").value), loadFont($("#wm_font").value||$("#font").value), loadFont($("#hook_font").value||$("#font").value)]); }
+const fcss=(id,px)=>`${px*S()}px "kf_${id}", system-ui`;
+
+// ---------- load video
+$("#btnLoad").onclick=async()=>{
+  const url=$("#url").value.trim(); if(!url) return alert("Tempel link YouTube dulu.");
+  const b=$("#btnLoad"); b.disabled=true; b.textContent="Memuat...";
+  const box=$("#vinfo"); box.style.display="block"; box.innerHTML="⏳ Membaca info video...";
+  try{
+    const d=await api("/api/info",{url}); st.info=d.info; const mh=d.info.max_height;
+    box.innerHTML=`<b>${esc(d.info.title||"")}</b><br><span class="muted">${esc(d.info.channel||"")} · durasi ${d.duration_text} · resolusi maks ${mh?mh+"p":"?"}</span>`+(mh&&mh<1080?`<div class="warn">Video ini maksimal ${mh}p.</div>`:"");
+    if(d.saved_cam){ st.cam=d.saved_cam; }
+    if(d.saved_terms && !$("#prompt").value) $("#prompt").value=d.saved_terms;
+    refresh();
+  }catch(e){ box.innerHTML=`<div class="err" style="display:block;margin:0">${esc(e.message)}</div>`; }
+  b.disabled=false; b.textContent="Muat";
+};
+
+// ---------- frame, faces, cam rect
+$("#btnFrame").onclick=async()=>{
+  const url=$("#url").value.trim(); if(!url) return alert("Isi link YouTube dulu (langkah 1).");
+  const c=clips()[0]; const t=(c&&c.start)||"0"; const b=$("#btnFrame"); const old=b.textContent;
+  b.disabled=true; b.textContent="⏳ Mengambil gambar & mendeteksi wajah...";
+  try{
+    const d=await api("/api/preview",{url,time:t});
+    st.faces=d.faces||[];
+    $("#frameHint").textContent = d.detector ? `${st.faces.length} wajah terdeteksi (${d.detector==="yunet"?"YuNet":"detektor cadangan"}).` : "";
+    const img=$("#frame"); img.onload=()=>{ st.img=img; $("#frameBox").style.display="block"; drawBoxes(); draw(); }; img.src=d.image;
+  }catch(e){ alert(e.message); }
+  b.disabled=false; b.textContent=old;
+};
+function drawBoxes(){
+  const fb=$("#frameBox"); fb.classList.toggle("draw", st.layout==="facecam");
+  let h="";
+  if(st.layout==="ai") st.faces.forEach((f,i)=>h+=`<div class="box face" style="left:${f.x*100}%;top:${f.y*100}%;width:${f.w*100}%;height:${f.h*100}%"><span>${i===mainFace()?"utama":"wajah"}</span></div>`);
+  if(st.layout==="facecam"&&st.cam) h+=`<div class="box" style="left:${st.cam.x*100}%;top:${st.cam.y*100}%;width:${st.cam.w*100}%;height:${st.cam.h*100}%"><span>FACECAM</span></div>`;
+  $("#boxes").innerHTML=h;
+}
+function mainFace(){ let best=-1,bs=-1; st.faces.forEach((f,i)=>{ const s=f.w*(1.2-Math.abs(f.x+f.w/2-0.5)); if(s>bs){bs=s;best=i;} }); return best; }
+(function(){
+  const box=$("#frameBox"); let p0=null;
+  const pos=e=>{ const r=box.getBoundingClientRect(); const pt=e.touches?e.touches[0]:e; return {x:Math.min(1,Math.max(0,(pt.clientX-r.left)/r.width)),y:Math.min(1,Math.max(0,(pt.clientY-r.top)/r.height))}; };
+  const down=e=>{ if(st.layout!=="facecam") return; e.preventDefault(); p0=pos(e); };
+  const move=e=>{ if(!p0) return; e.preventDefault(); const p=pos(e); st.cam={x:Math.min(p0.x,p.x),y:Math.min(p0.y,p.y),w:Math.abs(p.x-p0.x),h:Math.abs(p.y-p0.y)}; drawBoxes(); draw(); };
+  const up=()=>{ if(p0&&st.cam&&(st.cam.w<0.03||st.cam.h<0.03)){ st.cam=null; drawBoxes(); } p0=null; draw(); };
+  box.addEventListener("mousedown",down); window.addEventListener("mousemove",move); window.addEventListener("mouseup",up);
+  box.addEventListener("touchstart",down,{passive:false}); window.addEventListener("touchmove",move,{passive:false}); window.addEventListener("touchend",up);
+})();
+
+// ---------- logo
+$("#logoFile").onchange=async()=>{
+  const f=$("#logoFile").files[0]; if(!f) return;
+  const data=await new Promise(r=>{ const fr=new FileReader(); fr.onload=()=>r(fr.result); fr.readAsDataURL(f); });
+  try{ await api("/api/logo",{data}); $("#logo_on").checked=true; loadLogo(); }catch(e){ alert(e.message); }
+};
+$("#btnLogoDel").onclick=async()=>{ await api("/api/logo",{remove:true}); st.logoImg=null; $("#logoThumb").style.display="none"; $("#logo_on").checked=false; draw(); };
+function loadLogo(){ const im=new Image(); im.onload=()=>{ st.logoImg=im; $("#logoThumb").src=im.src; $("#logoThumb").style.display="inline-block"; draw(); }; im.src="/logo.png?v="+Date.now(); }
+
+// ---------- preview (meniru logika render di app.py)
+const cv=$("#pv"), cx=cv.getContext("2d");
+const S=()=>cv.width/W;
+const HL={kuning:"#ffff00",hijau:"#66ff00",merah:"#ff3a3a",biru:"#40c0ff",pink:"#ff6bc8",oranye:"#ff9000",putih:"#ffffff"};
+const TC={putih:"#ffffff",kuning:"#ffff00",hitam:"#000000",merah:"#ff3a3a",biru:"#40c0ff",hijau:"#66ff00"};
+function dimg(img,sx,sy,sw,sh,dx,dy,dw,dh){ const s=S(); cx.drawImage(img,sx,sy,sw,sh,dx*s,dy*s,dw*s,dh*s); }
+function blurBg(img,iw,ih){ const s=S(); cx.save(); cx.filter="blur(10px) brightness(0.85)"; const k=Math.max(W/iw,H/ih); cx.drawImage(img,(W-iw*k)/2*s,(H-ih*k)/2*s,iw*k*s,ih*k*s); cx.restore(); }
+function placeholder(t,x,y,w,h,col){ const s=S(); cx.fillStyle=col||"#26303d"; cx.fillRect(x*s,y*s,w*s,h*s); cx.fillStyle="rgba(255,255,255,.35)"; cx.font=`700 ${Math.min(W,H)*0.04*s}px system-ui`; cx.textAlign="center"; cx.textBaseline="middle"; cx.fillText(t,(x+w/2)*s,(y+h/2)*s); }
+function even(x){ return Math.max(2,Math.floor(x/2)*2); }
+function geom(fgTop,fgBot){
+  const portrait=H>W; let sub,hook,credit;
+  if(st.layout==="facecam"){ const top=even(H*$("#cam_pct").value/100); sub=top; hook=175; credit=H-400; }
+  else if(st.layout==="ai"||fgTop==null||(fgTop<=2&&fgBot>=H-2)){ sub=H*(portrait?0.70:W>H?0.84:0.80); hook=H*(portrait?0.09:0.11); credit=H*(portrait?0.80:0.955); }
+  else { sub=fgBot+H*0.08<H*0.86?fgBot+H*0.08:H*0.80; hook=fgTop>H*0.13?fgTop-H*0.075:H*0.09; credit=portrait?H*0.80:H*0.955; if(portrait&&Math.abs(credit-sub)<90) credit=Math.min(H-60,sub+120); }
+  const p=+$("#sub_y_pct").value; if(p>0) sub=H*p/100;
+  return {sub,hook,credit};
+}
+function drawWatermark(onlyBehind){
+  const text=$("#wm_text").value.trim(); if(!text) return; const mode=$("#wm_mode").value;
+  if(onlyBehind!==(mode==="belakang"&&st._behindOk)) return;
+  const fid=$("#wm_font").value||$("#font").value, size=+$("#wm_size").value, op=Math.max(.03,$("#wm_opacity").value/100), ang=+$("#wm_angle").value;
+  const s=S(); cx.save(); cx.font=fcss(fid,size); cx.fillStyle=TC[$("#wm_color").value]||"#fff"; cx.strokeStyle=`rgba(0,0,0,${op*0.7})`; cx.lineWidth=Math.max(1,size*0.05)*2*s; cx.globalAlpha=op; cx.lineJoin="round";
+  const put=(x,y,align,base,rot)=>{ cx.save(); cx.translate(x*s,y*s); if(rot) cx.rotate(-rot*Math.PI/180); cx.textAlign=align; cx.textBaseline=base; cx.globalAlpha=1; cx.globalAlpha=op; cx.strokeText(text,0,0); cx.fillText(text,0,0); cx.restore(); };
+  const m=Math.round(W*0.04), top=Math.round(H*0.06), bot=Math.round(H*(H>W?0.12:0.07));
+  const corner={"kiri-atas":[m,top,"left","top"],"kanan-atas":[W-m,top,"right","top"],"kiri-bawah":[m,H-bot,"left","bottom"],"kanan-bawah":[W-m,H-bot,"right","bottom"],"atas-tengah":[W/2,top,"center","top"],"bawah-tengah":[W/2,H-bot,"center","bottom"],"tengah":[W/2,H/2,"center","middle"]};
+  if(mode==="pojok"){ const c=corner[$("#wm_pos").value]||corner["kanan-atas"]; put(c[0],c[1],c[2],c[3],0); }
+  else if(mode==="pindah"){ const c=corner["kanan-atas"]; put(c[0],c[1],c[2],c[3],0); }
+  else if(mode==="diagonal"||mode==="belakang"){ put(W/2,H/2,"center","middle",ang); }
+  else if(mode==="pola"){ const tw=cx.measureText(text).width/s, sx=tw+size*2.2, sy=size*4.2; let n=0;
+    for(let r=-1;r<H/sy+3;r++) for(let c=-1;c<W/sx+3;c++){ if(n++>=120) break; put(c*sx+(r%2?sx/2:0), r*sy,"center","middle",ang); } }
+  cx.restore();
+}
+function drawLogo(){
+  if(!$("#logo_on").checked||!st.logoImg) return; const im=st.logoImg, s=S();
+  const lw=even(W*$("#logo_size").value/100), lh=lw*im.naturalHeight/im.naturalWidth, m=Math.round(W*0.04), top=Math.round(H*0.06), bot=Math.round(H*(H>W?0.12:0.07));
+  const p={"kiri-atas":[m,top],"kanan-atas":[W-lw-m,top],"kiri-bawah":[m,H-lh-bot],"kanan-bawah":[W-lw-m,H-lh-bot],"atas-tengah":[(W-lw)/2,top],"bawah-tengah":[(W-lw)/2,H-lh-bot],"tengah":[(W-lw)/2,(H-lh)/2]}[$("#logo_pos").value];
+  cx.save(); cx.globalAlpha=$("#logo_opacity").value/100; cx.drawImage(im,p[0]*s,p[1]*s,lw*s,lh*s); cx.restore();
+}
+function draw(){
+  const s=S(); cx.setTransform(1,0,0,1,0,0); cx.filter="none"; cx.globalAlpha=1; $("#pvHint").style.display=st.img?"none":"";
+  cx.fillStyle="#111"; cx.fillRect(0,0,cv.width,cv.height);
+  const img=st.img, iw=img?img.naturalWidth:1920, ih=img?img.naturalHeight:1080;
+  let fgTop=null, fgBot=null; st._behindOk=false;
+  if(st.layout==="facecam"){
+    const topH=even(H*$("#cam_pct").value/100), botH=H-topH;
+    if(img){
+      if(st.game_mode==="utuh"){ cx.save(); cx.beginPath(); cx.rect(0,topH*s,W*s,botH*s); cx.clip(); cx.filter="blur(10px) brightness(0.85)"; const k=Math.max(W/iw,botH/ih); cx.drawImage(img,(W-iw*k)/2*s,(topH+(botH-ih*k)/2)*s,iw*k*s,ih*k*s); cx.filter="none"; const fh=W*ih/iw; dimg(img,0,0,iw,ih,0,topH+(botH-fh)/2,W,fh); cx.restore(); }
+      else { const z=+$("#game_zoom").value; let gw=ih*(W/botH)/z; if(gw>iw) gw=iw; const gh=gw*botH/W; dimg(img,(iw-gw)*$("#game_x").value,(ih-gh)*$("#game_y").value,gw,gh,0,topH,W,botH); }
+    } else placeholder("GAMEPLAY",0,topH,W,botH);
+    if(img&&st.cam){ let x=st.cam.x*iw,y=st.cam.y*ih,w=st.cam.w*iw,h=st.cam.h*ih; const dst=W/topH; if(w/h>dst){const nw=h*dst;x+=(w-nw)/2;w=nw;}else{const nh=w/dst;y+=(h-nh)/2;h=nh;} dimg(img,x,y,w,h,0,0,W,topH); }
+    else placeholder(img?"TARIK KOTAK FACECAM":"FACECAM",0,0,W,topH,"#3b2b45");
+    if($("#divider").checked){ cx.fillStyle="#fff"; cx.fillRect(0,(topH-4)*s,W*s,8*s); }
+    $("#pvNote").textContent="perkiraan hasil";
+  } else if(st.layout==="ai"){
+    let z=+$("#ai_zoom").value; if(W>=H) z=Math.max(1.15,z);
+    let ch=ih/z, cw=ch*W/H; if(cw>iw){ cw=iw; ch=cw*H/W; }
+    let fx=0.5, fy=0.5; const mi=mainFace(); if(mi>=0){ const f=st.faces[mi]; fx=f.x+f.w/2; fy=f.y+f.h/2; }
+    let x=Math.min(Math.max(0,fx*iw-cw/2),iw-cw), y=Math.min(Math.max(0,fy*ih-ch*0.4),ih-ch);
+    if(img) dimg(img,x,y,cw,ch,0,0,W,H); else placeholder("AI KAMERA",0,0,W,H);
+    $("#pvNote").textContent="kamera bergerak otomatis";
+  } else {
+    const z=Math.max(0.3,+$("#zoom").value), k=W*z/iw, SW=iw*k, SH=ih*k, CW=Math.min(W,SW), CH=Math.min(H,SH);
+    const X=(SW-CW)*$("#pan_x").value, Y=(SH-CH)*$("#pan_y").value, top=(H-CH)/2, left=(W-CW)/2;
+    const needBg=CW<W-1||CH<H-1;
+    if(needBg){ if(img&&$("#bg").value==="blur") blurBg(img,iw,ih); else { cx.fillStyle="#000"; cx.fillRect(0,0,cv.width,cv.height); } st._behindOk=true; drawWatermark(true); }
+    if(img) dimg(img,X/k,Y/k,CW/k,CH/k,left,top,CW,CH); else placeholder("VIDEO",left,top,CW,CH);
+    fgTop=top; fgBot=top+CH; $("#pvNote").textContent="perkiraan hasil";
+  }
+  drawLogo();
+  const g=geom(fgTop,fgBot);
+  const fid=$("#font").value;
+  // credit
+  if($("#credit").checked){ cx.save(); cx.font=fcss(fid,H>W?34*W/1080:30); cx.textAlign="center"; cx.textBaseline="middle"; cx.lineWidth=6*s; cx.strokeStyle="rgba(0,0,0,.8)"; cx.globalAlpha=.75; const t="Sumber: "+((st.info&&st.info.channel)||"Channel"); cx.strokeText(t,W/2*s,g.credit*s); cx.fillStyle="#fff"; cx.fillText(t,W/2*s,g.credit*s); cx.restore(); }
+  drawWatermark(false);
+  // hook
+  const c0=clips()[0]; let hook=c0&&c0.title||""; if($("#uppercase").checked) hook=hook.toUpperCase();
+  if(hook){ const hs=+$("#hook_size").value, hfid=$("#hook_font").value||fid, box=$("#hook_box").value; cx.save(); cx.font=fcss(hfid,hs); cx.textAlign="center"; cx.textBaseline="middle"; cx.lineJoin="round";
+    const lines=wrap(hook,W-2*Math.round(W*0.09)), lh=hs*1.25, tot=lines.length*lh, pad=hs*0.3; const wmax=Math.max(...lines.map(l=>cx.measureText(l).width/s));
+    if(box==="polos"){ const ol=Math.round(hs*$("#hook_outline").value/100); cx.lineWidth=ol*2*s; cx.strokeStyle="#000";
+      lines.forEach((l,i)=>{ const y=(g.hook-tot/2+lh*(i+.5))*s; if(ol>0) cx.strokeText(l,W/2*s,y); cx.fillStyle=TC[$("#hook_color").value]; cx.fillText(l,W/2*s,y); }); }
+    else { cx.fillStyle=box==="hitam"?"#000":"#fff"; cx.fillRect((W/2-wmax/2-pad)*s,(g.hook-tot/2-pad)*s,(wmax+2*pad)*s,(tot+2*pad)*s);
+      cx.fillStyle=box==="hitam"?"#fff":"#000"; lines.forEach((l,i)=>cx.fillText(l,W/2*s,(g.hook-tot/2+lh*(i+.5))*s)); }
+    cx.restore(); }
+  // subtitle contoh
+  if($("#subs").checked){
+    const sz=+$("#sub_size").value, n=+$("#per_line").value, ol=Math.max(2,Math.round(sz*$("#sub_outline").value/100));
+    let ws=["INI","CONTOH","SUBTITLE","KEREN","BANGET","PARAH"].slice(0,n); if(!$("#uppercase").checked) ws=ws.map(w=>w[0]+w.slice(1).toLowerCase());
+    let active=ws.length-1; if(st.sub_style==="muncul"){ ws=ws.slice(0,Math.max(1,n-1)); active=ws.length-1; }
+    cx.save(); cx.font=fcss(fid,sz); cx.textBaseline="middle"; cx.lineJoin="round";
+    const sp=cx.measureText(" ").width, widths=ws.map(w=>cx.measureText(w).width);
+    let x=W/2*s-(widths.reduce((a,b)=>a+b,0)+sp*(ws.length-1))/2; cx.textAlign="left";
+    ws.forEach((w,i)=>{ const on=st.sub_style!=="simple"&&i===active;
+      if(on&&st.sub_style==="kotak"){ cx.lineWidth=ol*2.2*2*s; cx.strokeStyle=HL[$("#sub_color").value]; cx.strokeText(w,x,g.sub*s); cx.fillStyle=TC[$("#sub_text").value]; }
+      else { cx.lineWidth=ol*2*s; cx.strokeStyle="#000"; if(ol>0) cx.strokeText(w,x,g.sub*s); cx.fillStyle=on?HL[$("#sub_color").value]:TC[$("#sub_text").value]; }
+      cx.fillText(w,x,g.sub*s); x+=widths[i]+sp; });
+    cx.restore();
+  }
+}
+function wrap(t,maxW){ const s=S(), words=t.split(/\s+/), out=[]; let cur=""; for(const w of words){ const tr=cur?cur+" "+w:w; if(cx.measureText(tr).width/s>maxW&&cur){ out.push(cur); cur=w; } else cur=tr; } if(cur) out.push(cur); return out; }
+
+// ---------- render job
+const KEYS=["zoom","pan_x","pan_y","bg","ai_zoom","ai_style","ai_transition","cam_pct","game_zoom","game_x","game_y","fps","font","sub_text","sub_color","sub_y_pct","sub_size","sub_outline","per_line","model","lang","prompt","rules","ai_fix","ai_model","wm_text","wm_mode","wm_pos","wm_opacity","wm_size","wm_angle","wm_every","wm_color","wm_font","logo_pos","logo_size","logo_opacity","hook_secs","hook_size","hook_box","hook_color","hook_outline","hook_font","intro_len","intro_fx","encoder","engine"];
+const CHECKS=["divider","subs","uppercase","review","credit","logo_on","intro_on"];
+function opts(){
+  const o={url:$("#url").value.trim(), clips:clips(), aspect:st.aspect, layout:st.layout, cam:st.cam, game_mode:st.game_mode, sub_style:st.sub_style, ai_key:$("#ai_key").value.trim(), groq_key:$("#groq_key").value.trim()};
+  KEYS.forEach(k=>{ const e=$("#"+k); o[k]=e.type==="range"?+e.value:e.value; }); CHECKS.forEach(k=>o[k]=$("#"+k).checked);
+  return o;
+}
+$("#btnGo").onclick=async()=>{
+  const o=opts();
+  if(!o.url) return alert("Isi link YouTube dulu.");
+  if(!o.clips.length) return alert("Isi menit mulai dan selesai minimal 1 clip.");
+  if(o.layout==="facecam"&&!o.cam) return alert("Tandai posisi facecam dulu: klik 'Ambil gambar' lalu tarik kotak di facecam.");
+  if(o.ai_fix!=="off"&&!o.ai_key&&!keysSaved[o.ai_fix]) return alert("Koreksi AI butuh API key. Isi API key atau matikan Koreksi AI.");
+  if(o.engine==="groq"&&!o.groq_key&&!keysSaved.groq) return alert("Mesin Groq butuh API key (gratis di console.groq.com). Isi API key atau pilih 'Laptop sendiri'.");
+  try{
+    const d=await api("/api/render",o); st.job=d.job; if(o.ai_key){ keysSaved[o.ai_fix]=true; $("#ai_key").value=""; updateKeyState(); }
+    if(o.groq_key){ keysSaved.groq=true; $("#groq_key").value=""; refresh(); }
+    $("#job").style.display="block"; $("#results").innerHTML=""; $("#err").style.display="none"; $("#resActions").style.display="none";
+    $("#btnGo").disabled=true; $("#job").scrollIntoView({behavior:"smooth"}); poll();
+  }catch(e){ alert(e.message); }
+};
+async function poll(){
+  let j; try{ j=await api("/api/job/"+st.job); }catch(e){ $("#stage").textContent=e.message; setTimeout(poll,3000); return; }
+  const all=j.status==="selesai"?100:Math.round(((Math.max(1,j.clip_no)-1)+(j.progress||0))/Math.max(1,j.total)*100);
+  $("#barFill").style.width=all+"%"; $("#pctAll").textContent=all+"%";
+  $("#clipNo").textContent=j.total>1?`clip ${Math.max(1,j.clip_no)} dari ${j.total}`:""; $("#clipNo").style.display=j.total>1?"":"none";
+  $("#stage").textContent=j.stage;
+  $("#elapsed").textContent="Waktu berjalan: "+fmtSecs(j.elapsed||0);
+  const IC={tunggu:"○",jalan:"⏳",selesai:"✅"};
+  $("#steps").innerHTML=(j.steps||[]).map(x=>`<div class="stp ${x.state}"><span class="ic">${IC[x.state]||"○"}</span><span class="lb">${esc(x.label)}<small>${esc(x.info||"")}${x.secs?" · "+fmtSecs(x.secs):""}</small></span><span class="mb"><i style="width:${Math.round(x.pct*100)}%"></i></span><span class="pc">${Math.round(x.pct*100)}%</span></div>`).join("");
+  $("#notes").innerHTML=(j.notes||[]).map(w=>`<div class="note">${esc(w)}</div>`).join("");
+  $("#warns").innerHTML=j.warnings.map(w=>`<div class="warn">${esc(w)}</div>`).join("");
+  showResults(j.outputs);
+  if(j.status==="cek_subtitle"&&j.review){ if(!st.reviewChunks) showReview(j.review); } else { $("#rvBox").style.display="none"; st.reviewChunks=null; }
+  if(j.status==="gagal"){ $("#err").style.display="block"; $("#err").textContent=j.error; $("#btnGo").disabled=false; return; }
+  if(j.status==="selesai"){ $("#barFill").style.width="100%"; $("#btnGo").disabled=false; return; }
+  setTimeout(poll,1200);
+}
+function fmtSecs(n){ n=Math.round(n); return n>=60?`${Math.floor(n/60)}m ${n%60}d`:`${n} dtk`; }
+function showReview(rv){
+  st.reviewChunks=rv.chunks;
+  $("#rvRows").innerHTML=rv.chunks.map((c,i)=>`<div class="sr"><code>${c.start.toFixed(1)}–${c.end.toFixed(1)}s</code><input type="text" data-i="${i}" value="${esc(c.text)}"></div>`).join("");
+  $("#rvBox").style.display="block"; $("#rvBox").scrollIntoView({behavior:"smooth",block:"center"});
+}
+async function sendReview(useEdits){
+  const chunks=useEdits?st.reviewChunks.map((c,i)=>({start:c.start,end:c.end,text:document.querySelector(`#rvRows input[data-i="${i}"]`).value})):null;
+  try{ await api(`/api/job/${st.job}/subtitle`,{chunks}); $("#rvBox").style.display="none"; }catch(e){ alert(e.message); }
+}
+$("#btnRv").onclick=()=>sendReview(true); $("#btnRvSkip").onclick=()=>sendReview(false);
+function showResults(outs){
+  const box=$("#results"); if(box.children.length===outs.length) return;
+  box.innerHTML=outs.map(o=>`<div class="res"><video src="${o.url}" controls preload="metadata" style="aspect-ratio:${(o.aspect||"9:16").replace(":","/")}"></video><div class="n">${esc(o.name)}<br><span class="muted">${o.seconds}s · ${o.aspect} · sumber ${o.source_height}p</span></div><a href="${o.url}?download=1">⬇ Download</a><a href="#" data-cap="${esc(o.caption)}">📋 Salin caption</a></div>`).join("");
+  box.querySelectorAll("a[data-cap]").forEach(a=>a.onclick=e=>{ e.preventDefault(); navigator.clipboard.writeText(a.dataset.cap).then(()=>{a.textContent="✅ Tersalin";}); });
+  if(outs.length) $("#resActions").style.display="block";
+}
+$("#btnFolder").onclick=()=>api("/api/open-folder",{}).catch(e=>alert(e.message));
+
+// ---------- start
+(async()=>{
+  try{
+    const d=await api("/api/status");
+    $("#ver").textContent="versi "+d.version; keysSaved=d.keys||{};
+    const f=await api("/api/fonts"); st.fonts=f.fonts; fillFontSelects(); if(f.default) $("#font").value=f.default;
+    const t=d.tools, miss=[];
+    if(!t.ffmpeg) miss.push("FFmpeg"); if(!t.yt_dlp) miss.push("yt-dlp"); if(!t.whisper) miss.push("faster-whisper"); if(!t.deno) miss.push("Deno"); if(!t.opencv) miss.push("OpenCV (AI kamera)"); if(!t.fonttools) miss.push("fonttools");
+    if(miss.length){ $("#banner").style.display="block"; $("#banner").innerHTML="⚠️ Belum terpasang: <b>"+miss.join(", ")+"</b>. Tutup KlipKu lalu buka lagi lewat 2-BUKA (otomatis memasang yang kurang)."; }
+    const L=d.last||{};
+    KEYS.forEach(k=>{ if(L[k]!==undefined&&$("#"+k)&&k!=="prompt") $("#"+k).value=L[k]; });
+    CHECKS.forEach(k=>{ if(L[k]!==undefined) $("#"+k).checked=L[k]; });
+    $("#rules").value=d.rules||"";
+    if(L.aspect) setSeg("#segAspect",L.aspect); if(L.layout) setSeg("#segLayout",L.layout); if(L.game_mode) setSeg("#segGame",L.game_mode); if(L.sub_style) setSeg("#segStyle",L.sub_style);
+    if(d.logo) loadLogo();
+    const savedEnc=L.encoder||"auto";
+    const showEnc=x=>{
+      if(!x.encoders_checked){ $("#encInfo").textContent="mengecek..."; return; }
+      $("#encInfo").innerHTML=(x.encoders&&x.encoders.length?"⚡ "+esc(x.encoders.join(", ")):"CPU (x264) — tidak ada GPU encoder")
+        +Object.entries(x.encoder_errors||{}).filter(([k])=>k==="h264_nvenc").map(([k,e])=>`<div class="warn" style="margin-top:6px">❌ ${esc(e.label)} tidak bisa dipakai.${e.hint?"<br><b>"+esc(e.hint)+"</b>":""}<br><small>${esc(e.error)}</small></div>`).join("")
+        +(Object.keys(x.encoder_errors||{}).some(k=>k!=="h264_nvenc")?`<details><summary>detail encoder lain</summary>`+Object.entries(x.encoder_errors).filter(([k])=>k!=="h264_nvenc").map(([k,e])=>`<div class="hint">${esc(e.label)}: ${esc(e.error)}</div>`).join("")+`</details>`:"");
+      $("#encoder").innerHTML=`<option value="auto">Otomatis — tercepat yang tersedia</option>`+(x.encoder_ids||[]).map(([id,lbl])=>`<option value="${id}">${esc(lbl)}</option>`).join("")+`<option value="cpu">CPU saja (x264)</option>`;
+      $("#encoder").value=[...$("#encoder").options].some(o=>o.value===savedEnc)?savedEnc:"auto";
+    };
+    showEnc(d); if(!d.encoders_checked){ const t=setInterval(async()=>{ const x=await api("/api/status"); if(x.encoders_checked){ clearInterval(t); showEnc(x); } },2500); }
+  }catch(e){ $("#banner").style.display="block"; $("#banner").textContent=e.message; }
+  $$(".only").forEach(e=>e.style.display=e.dataset.show===st.layout?"block":"none");
+  refresh();
+  try{ const a=await api("/api/active"); if(a.job){ st.job=a.job; $("#job").style.display="block"; $("#btnGo").disabled=true; poll(); } }catch(e){}
+})();
+</script>
+</body>
+</html>

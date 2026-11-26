@@ -1,0 +1,14 @@
+* text=auto
+
+# Skrip Windows wajib CRLF, skrip Mac wajib LF
+*.bat     text eol=crlf
+*.command text eol=lf
+*.sh      text eol=lf
+
+# File biner
+*.ttf    binary
+*.otf    binary
+*.onnx   binary
+*.png    binary
+*.jpg    binary
+*.mp4    binary

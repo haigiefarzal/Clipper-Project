@@ -1,0 +1,3 @@
+Semua font di folder ini berlisensi SIL Open Font License 1.1 (OFL) — bebas dipakai, termasuk komersial.
+Poppins (Indian Type Foundry), Inter (Rasmus Andersson), Lora (Cyreal) juga OFL 1.1.
+Font Montserrat/Roboto/Open Sans/DM Sans/Source Sans 3/Bitter/Lora/Gelasio di sini adalah instance statis dari versi variable-nya.

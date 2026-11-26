@@ -1,0 +1,18 @@
+# Lingkungan Python (dibuat otomatis oleh installer)
+.venv/
+venv/
+__pycache__/
+*.pyc
+
+# Data pribadi & hasil render (dibuat otomatis saat aplikasi jalan)
+work/
+hasil/
+
+# Font tambahan milik pengguna (folder & petunjuknya tetap ikut)
+fonts/tambahan/*
+!fonts/tambahan/TARUH-FONT-DI-SINI.txt
+
+# File sistem
+.DS_Store
+Thumbs.db
+desktop.ini

@@ -1,0 +1,113 @@
+===================================================================
+  KLIPKU 2.1 — Link YouTube + menit  ->  clip siap upload
+===================================================================
+
+YANG BARU DI VERSI 2.1
+- Judul hook bisa: bingkai putih, bingkai hitam, atau polos (teks saja,
+  warna & garis tepi bisa diatur) + font hook sendiri.
+- Intro hook + ulang: potongan N detik + judul hook diputar dulu, lalu video
+  diulang dari awal tanpa judul. Bisa ambil intro dari momen puncak,
+  efek kilat putih atau rewind cepat.
+- Progres per tahap dengan angka: download, siapkan model (MB), subtitle,
+  koreksi, AI kamera, render (kecepatan & sisa waktu).
+- Mesin render otomatis pakai GPU (NVIDIA/Intel/AMD/Apple) kalau ada,
+  dan otomatis pindah ke CPU kalau GPU gagal. Blur & download lebih cepat.
+
+YANG BARU DI VERSI 2
+- AI Kamera: kamera bergerak sendiri mengikuti siapa yang bicara/bereaksi,
+  halus mengikuti goyangan kepala, lalu balik ke karakter utama.
+- Rasio 9:16, 16:9 (landscape), dan 1:1. Zoom + geser bebas (contoh 1,65x + blur).
+- Watermark 5 gaya: pojok, diagonal transparan, pola berulang,
+  pindah-pindah pojok, dan di belakang video. Plus logo PNG.
+- 21 font bawaan + semua font yang ter-install di komputer kamu.
+- Subtitle lebih akurat: model large-v3-turbo / large-v3, GPU otomatis,
+  "kata khusus" (contoh: Prasmul) dengan koreksi bunyi, kamus ganti,
+  dan koreksi AI opsional (Gemini yang ikut mendengarkan audio).
+
+
+-------------------------------------------------------------------
+A. UPDATE DARI VERSI 1 (kalau KlipKu sudah terpasang)
+-------------------------------------------------------------------
+1. Tutup jendela hitam KlipKu kalau sedang terbuka.
+2. Ekstrak KlipKu.zip yang baru. Buka folder "klipku" hasil ekstrak,
+   pilih SEMUA isinya (Ctrl+A), Copy.
+3. Buka folder klipku LAMA kamu (misal Downloads\KlipKu\klipku), Paste,
+   pilih "Replace the files in the destination" (ganti semua).
+   Folder .venv, work, dan hasil kamu tetap aman.
+4. Klik dua kali 2-BUKA-KlipKu-Windows.bat.
+   Pertama kali, KlipKu memasang komponen baru (OpenCV, fonttools) ±1-3 menit.
+5. Di jendela hitam harus muncul: "KlipKu versi 2.1 jalan di ...".
+   Pojok kanan atas halaman juga menulis "versi 2.1".
+
+INSTAL BARU (belum pernah pasang)
+1. Ekstrak ZIP, buka folder klipku, klik dua kali 1-INSTALL-Windows.bat
+   (Mac: klik kanan 1-INSTALL-Mac.command > Open). Ikuti petunjuknya.
+2. Lalu buka lewat 2-BUKA-KlipKu-Windows.bat.
+
+
+-------------------------------------------------------------------
+B. CARA PAKAI
+-------------------------------------------------------------------
+1. Tempel link VOD YouTube > Muat.
+2. Isi menit Mulai & Selesai (+ judul hook kalau mau).
+3. Format & kamera:
+   - Pilih rasio: 9:16 / 16:9 / 1:1.
+   - Pilih mode kamera:
+     * Tengah / zoom manual: atur zoom (misal 1,65x) dan geser posisi.
+       Bagian kosong otomatis diisi blur (atau hitam).
+     * AI Kamera: kamera otomatis. Atur zoom AI, gaya (Halus / Dinamis),
+       dan cara pindah orang (Geser cepat / Potong langsung).
+     * Facecam + Gameplay (khusus 9:16): tarik kotak di facecam.
+   - Klik "Ambil gambar" supaya preview di kanan memakai gambar asli.
+     Di mode AI, wajah yang terdeteksi ditandai kotak hijau.
+4. Subtitle:
+   - Pilih gaya, cari font di kotak pencarian, atur warna/ukuran/posisi.
+   - Model "Akurat — large-v3-turbo" disarankan. "Paling akurat — large-v3"
+     paling bagus tapi berat (lebih cocok kalau laptop punya GPU NVIDIA).
+   - ISI "Kata khusus" dengan nama-nama penting, contoh:
+       Prasmul, Bigmo, Windah Basudara, UTBK
+     Whisper akan diarahkan ke kata itu, dan kata yang BUNYInya mirip
+     (plasmool, plas mul, blasmul) otomatis diganti jadi "Prasmul".
+     Tersimpan per channel.
+   - Kamus ganti: satu per baris "salah = benar", contoh "ff = Free Fire".
+   - Koreksi AI (opsional, paling akurat): pilih Gemini, tempel API key
+     (gratis dari Google AI Studio). Gemini ikut MENDENGARKAN audio clip
+     lalu membetulkan kata yang salah dengar. API key disimpan di komputer kamu.
+   - Biarkan "Cek & edit subtitle dulu" dicentang untuk koreksi manual.
+5. Watermark, logo & hook:
+   - Gaya "Pola berulang" atau "Pindah-pindah pojok" paling susah
+     dicolong/di-crop orang. Pakai opacity rendah (10-25%) untuk pola/diagonal.
+   - "Di belakang video" hanya terlihat kalau ada area blur
+     (mode Tengah dengan zoom kecil).
+   - Logo: pilih file PNG (transparan lebih bagus), atur posisi/ukuran.
+6. Klik "Buat Clip". Hasil ada di folder "hasil".
+
+
+-------------------------------------------------------------------
+C. TENTANG AI KAMERA (jujur soal batasannya)
+-------------------------------------------------------------------
+- AI menebak siapa yang bicara dari GERAKAN MULUT + suara, dan siapa yang
+  bereaksi dari gerakan kepala. Bekerja paling bagus untuk video
+  ngobrol/podcast/IRL dengan wajah terlihat jelas.
+- Kurang bagus untuk: wajah kecil sekali, menyamping penuh, tertutup
+  masker/helm, VTuber/avatar kartun, atau stream tanpa wajah.
+  Untuk itu pakai mode Tengah atau Facecam.
+- Saat pertama dipakai, KlipKu mendownload model deteksi wajah (±230 KB).
+  Kalau gagal, dipakai detektor cadangan (kurang akurat) dan akan ada
+  catatan di layar proses.
+- Render AI Kamera lebih lama dari mode biasa. Pilih 30 fps supaya cepat.
+
+
+-------------------------------------------------------------------
+D. KALAU ADA MASALAH
+-------------------------------------------------------------------
+- Kotak merah "Belum terpasang: ..." -> tutup KlipKu, buka lagi lewat 2-BUKA.
+- Error download / 403 / "Sign in to confirm" -> tutup & buka lagi KlipKu
+  (yt-dlp otomatis update), atau tunggu 10-30 menit.
+- Masih pakai versi lama -> lihat tulisan "versi" di pojok kanan atas.
+- Font baru tidak muncul -> klik tombol ↻ di sebelah pencarian font.
+- Halaman tidak terbuka -> buka browser ke http://127.0.0.1:8765
+
+CATATAN
+- Clip hanya dari streamer yang mengizinkan. Biarkan "Sumber: channel" aktif.
+- Untuk monetisasi, beri nilai tambah (hook, subtitle, editing).

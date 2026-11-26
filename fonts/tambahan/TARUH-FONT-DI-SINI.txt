@@ -1,0 +1,2 @@
+Taruh file font .ttf / .otf (misalnya The Bold Font, Komika Axis, Montserrat) di folder ini,
+lalu tutup & buka lagi KlipKu. Font yang sudah ter-install di Windows/Mac juga otomatis muncul.
