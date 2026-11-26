@@ -102,7 +102,6 @@ Browser akan terbuka otomatis di **http://127.0.0.1:8765**. Biarkan jendela hita
 ├── engine_fonts.py         # Pengelola font
 ├── web/index.html          # Tampilan aplikasi PC
 ├── docs/                   # KlipKu Web (GitHub Pages): Mediabunny + Transformers.js + YuNet
-├── .github/workflows/      # Deploy otomatis KlipKu Web ke GitHub Pages
 ├── fonts/                  # 21 font bawaan (SIL OFL 1.1) + lisensinya
 │   └── tambahan/           # Taruh font kamu sendiri di sini
 ├── models/                 # Model deteksi wajah YuNet (ONNX)
