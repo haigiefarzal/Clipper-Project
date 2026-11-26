@@ -905,7 +905,7 @@ async function processClip(o, clip, idx, keysStore) {
 
   const name = `${slug(S.stem)}_${fmtTime(s).replace(/:/g, '-')}_${o.aspect.replace(':', 'x')}.mp4`;
   const caption = `${clip.t || S.stem}\n\nSumber: ${o.channel.trim() || '-'}\n#clip #fyp`;
-  addResult(res.blob, name, caption, fmtTime(dur), o.aspect);
+  addResult(res.blob, name, caption, fmtTime(outDur, true), o.aspect);
 }
 
 function addResult(blob, name, caption, len, aspect) {
