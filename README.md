@@ -11,6 +11,20 @@ KlipKu adalah aplikasi clipper yang jalan di komputer kamu sendiri. Tempel link 
 
 ---
 
+## 🚀 Dua cara pakai
+
+| | 🌐 **KlipKu Web** | 💻 **KlipKu PC** |
+|---|---|---|
+| Buka | **https://haigiefarzal.github.io/Clipper-Project/** | Download & install (lihat di bawah) |
+| Sumber video | Upload file video | Tempel link YouTube langsung |
+| Install | Tidak perlu | Sekali, otomatis |
+| Diproses di | Browser kamu (GPU lewat WebGPU/WebCodecs) | Komputer kamu (FFmpeg + Whisper) |
+| Fitur | Rasio, AI kamera, facecam, subtitle, koreksi AI, hook, intro, watermark, logo | Semua fitur |
+
+KlipKu Web paling lancar di **Chrome / Edge terbaru** di laptop/PC. Video tidak di-upload ke server mana pun.
+
+---
+
 ## ✨ Fitur
 
 | Fitur | Keterangan |
@@ -27,9 +41,7 @@ KlipKu adalah aplikasi clipper yang jalan di komputer kamu sendiri. Tempel link 
 
 ---
 
-## 📥 Download
-
-🌐 **Website:** https://haigiefarzal.github.io/Clipper-Project/
+## 📥 Download versi PC
 
 1. Download **[KlipKu.zip](https://github.com/haigiefarzal/Clipper-Project/releases/latest/download/KlipKu.zip)** dari halaman [Releases](https://github.com/haigiefarzal/Clipper-Project/releases).
 2. Ekstrak ZIP-nya ke folder mana saja (misal `Downloads`).
@@ -88,7 +100,9 @@ Browser akan terbuka otomatis di **http://127.0.0.1:8765**. Biarkan jendela hita
 ├── engine_camera.py        # AI Kamera (deteksi wajah & pembicara)
 ├── engine_subs.py          # Subtitle (Whisper) + koreksi AI
 ├── engine_fonts.py         # Pengelola font
-├── web/index.html          # Tampilan aplikasi
+├── web/index.html          # Tampilan aplikasi PC
+├── docs/                   # KlipKu Web (GitHub Pages): Mediabunny + Transformers.js + YuNet
+├── .github/workflows/      # Deploy otomatis KlipKu Web ke GitHub Pages
 ├── fonts/                  # 21 font bawaan (SIL OFL 1.1) + lisensinya
 │   └── tambahan/           # Taruh font kamu sendiri di sini
 ├── models/                 # Model deteksi wajah YuNet (ONNX)
