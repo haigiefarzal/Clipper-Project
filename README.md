@@ -29,7 +29,9 @@ KlipKu adalah aplikasi clipper yang jalan di komputer kamu sendiri. Tempel link 
 
 ## 📥 Download
 
-1. Klik tombol hijau **`<> Code`** di atas → **Download ZIP**.
+🌐 **Website:** https://haigiefarzal.github.io/Clipper-Project/
+
+1. Download **[KlipKu.zip](https://github.com/haigiefarzal/Clipper-Project/releases/latest/download/KlipKu.zip)** dari halaman [Releases](https://github.com/haigiefarzal/Clipper-Project/releases).
 2. Ekstrak ZIP-nya ke folder mana saja (misal `Downloads`).
 
 Atau lewat Git:

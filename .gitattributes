@@ -5,6 +5,11 @@
 *.command text eol=lf
 *.sh      text eol=lf
 
+# Tidak ikut di ZIP rilis (website GitHub Pages & file git)
+docs/          export-ignore
+.gitattributes export-ignore
+.gitignore     export-ignore
+
 # File biner
 *.ttf    binary
 *.otf    binary
