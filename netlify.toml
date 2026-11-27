@@ -1,0 +1,3 @@
+# Netlify: KlipKu Web ada di folder docs (tanpa proses build)
+[build]
+  publish = "docs"
