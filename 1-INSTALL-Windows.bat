@@ -44,6 +44,12 @@ if errorlevel 1 (
   echo [3/3] Deno sudah ada.
 )
 
+where cloudflared >nul 2>nul
+if errorlevel 1 if not exist "%ProgramFiles(x86)%\cloudflared\cloudflared.exe" (
+  echo [+] Memasang cloudflared ^(untuk tombol Sambungkan HP^)...
+  winget install -e --id Cloudflare.cloudflared --accept-source-agreements --accept-package-agreements
+)
+
 py -3 --version >nul 2>nul
 if errorlevel 1 goto restart
 

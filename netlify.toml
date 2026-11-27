@@ -1,3 +1,5 @@
-# Netlify: KlipKu Web ada di folder docs (tanpa proses build)
+# Netlify: KlipKu Web ada di folder docs (tanpa proses build).
+# base = docs supaya Netlify tidak ikut memasang paket Python milik versi PC.
 [build]
-  publish = "docs"
+  base = "docs"
+  publish = "."

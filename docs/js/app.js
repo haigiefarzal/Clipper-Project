@@ -403,8 +403,9 @@ async function decodedLib(id) {
 }
 
 // ================================================================== video
-async function loadVideo(file) {
+async function loadVideo(file, fromLink = null) {
   if (!file) return;
+  S.linkInfo = fromLink;
   if (S.busy) return alert('Tunggu proses yang sedang berjalan selesai dulu.');
   $('vbox').hidden = false;
   $('drop').hidden = true;
@@ -1219,7 +1220,9 @@ async function processClip(o, clip, idx, keys) {
 
   const plainTitle = String(title || S.stem).replace(/[*|]/g, '').replace(/\s+/g, ' ').trim();
   const name = `${slug(plainTitle || S.stem)}_${fmtTime(s).replace(/:/g, '-')}_${o.aspect.replace(':', 'x')}.mp4`;
-  const srcLine = o.channel.trim() ? `Sumber: ${o.channel.trim()}` : '';
+  let srcUrl = S.linkInfo?.source || '';
+  if (/youtu\.be\/[\w-]+\?t=\d+$/.test(srcUrl)) srcUrl = srcUrl.replace(/t=\d+$/, 't=' + Math.floor((S.linkInfo.start || 0) + s));
+  const srcLine = o.channel.trim() ? `Sumber: ${o.channel.trim()}${srcUrl ? ' ' + srcUrl : ''}` : '';
   const capText = caption
     ? [caption, srcLine].filter(Boolean).join('\n\n')
     : [plainTitle, srcLine, `#${slug(o.channel || 'clip', 30).replace(/-/g, '')} #clip #fyp`].filter(Boolean).join('\n\n');
@@ -1436,4 +1439,124 @@ init();
   const toggle = () => { v.muted = !v.muted; b.textContent = v.muted ? 'Nyalakan suara' : 'Matikan suara'; if (v.paused) v.play().catch(() => {}); };
   b.onclick = toggle;
   v.onclick = toggle;
+})();
+
+// ================================================================== video dari link (diunduh oleh KlipKu PC)
+const PCK = 'klipku-web-pc';
+const RELAY = 'https://projectgieclips.pages.dev/api/pc/';
+const readPc = () => { try { return JSON.parse(localStorage.getItem(PCK) || 'null'); } catch { return null; } };
+function setPcState(text, ok = null) {
+  $('pcState').textContent = text;
+  $('pcState').style.color = ok === true ? 'var(--green)' : ok === false ? 'var(--red)' : '';
+}
+function refreshPc() {
+  const p = readPc();
+  $('pcForget').hidden = !p;
+  $('linkFoot').innerHTML = p
+    ? 'Link diunduh oleh KlipKu di laptop kamu. Laptop harus menyala dan KlipKu terbuka. Selebihnya diproses di HP ini.'
+    : 'YouTube tidak mengizinkan website mengunduh video, jadi link diunduh oleh KlipKu di laptop kamu. Pasangkan sekali: buka KlipKu di laptop, tekan <b>Sambungkan HP</b>, lalu scan QR-nya dengan HP ini. Setelah itu tinggal tempel link selama KlipKu di laptop terbuka.';
+  if (!p) setPcState('Belum dipasangkan');
+  return p;
+}
+async function findPc(p) {
+  let r;
+  try { r = await fetch(RELAY + encodeURIComponent(p.id), { cache: 'no-store' }); } catch { r = null; }
+  if (!r) throw new Error('Tidak bisa menghubungi buku alamat KlipKu. Cek koneksi internet.');
+  if (r.status === 404) throw new Error('KlipKu di laptop sedang tidak menyala. Buka KlipKu di laptop, tunggu sebentar, lalu coba lagi.');
+  if (!r.ok) throw new Error('Buku alamat KlipKu sedang bermasalah. Coba lagi sebentar lagi.');
+  const { url } = await r.json();
+  const ping = await fetch(url + '/api/remote/ping', { headers: { 'X-KlipKu-Key': p.key }, cache: 'no-store' }).catch(() => null);
+  if (!ping) throw new Error('Laptop tidak bisa dihubungi. Pastikan laptop menyala, terhubung internet, dan KlipKu terbuka.');
+  if (ping.status === 403) throw new Error('Kunci tidak cocok. Scan ulang QR dari tombol Sambungkan HP di KlipKu PC.');
+  if (!ping.ok) throw new Error('KlipKu di laptop belum siap. Coba lagi sebentar lagi.');
+  return url;
+}
+async function checkPc() {
+  const p = refreshPc();
+  if (!p) return;
+  setPcState('Mengecek...');
+  try { await findPc(p); setPcState('Tersambung', true); } catch { setPcState('Tidak menyala', false); }
+}
+async function fetchFromLink() {
+  const url = $('linkUrl').value.trim();
+  if (!url) { $('linkUrl').focus(); return; }
+  const p = readPc();
+  const prog = (stage, v) => {
+    $('linkProg').hidden = false;
+    $('linkStage').textContent = stage;
+    if (v != null) { $('linkBar').style.width = v * 100 + '%'; $('linkPct').textContent = Math.round(v * 100) + '%'; }
+  };
+  if (!p) {
+    prog('HP ini belum dipasangkan. Buka KlipKu di laptop, tekan Sambungkan HP, lalu scan QR-nya.', 0);
+    $('linkPct').textContent = '';
+    return;
+  }
+  if (S.busy) return;
+  const btn = $('btnLink');
+  btn.disabled = true;
+  try {
+    prog('Mencari KlipKu di laptop...', 0.01);
+    const base = await findPc(p);
+    setPcState('Tersambung', true);
+    const auth = { 'X-KlipKu-Key': p.key };
+    const res = await fetch(base + '/api/remote/fetch', {
+      method: 'POST', headers: { ...auth, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url, start: $('linkS').value.trim(), end: $('linkE').value.trim() }),
+    });
+    let st = await res.json();
+    if (!res.ok || st.ok === false) throw new Error(st.error || 'Video tidak bisa diambil.');
+    const id = st.id;
+    while (st.status === 'jalan') {
+      await new Promise((r) => setTimeout(r, 1200));
+      const jr = await fetch(base + '/api/remote/job/' + id, { headers: auth, cache: 'no-store' });
+      st = await jr.json();
+      if (!jr.ok) throw new Error(st.error || 'Proses di laptop berhenti.');
+      prog(`${st.stage} (di laptop)`, st.progress * 0.7);
+    }
+    if (st.status !== 'selesai') throw new Error(st.error || 'Video tidak bisa diambil.');
+    prog('Mengirim video ke HP...', 0.7);
+    const fr = await fetch(base + '/api/remote/file/' + id, { headers: auth, cache: 'no-store' });
+    if (!fr.ok || !fr.body) throw new Error('Video tidak bisa dikirim ke HP. Coba lagi.');
+    const total = +fr.headers.get('Content-Length') || st.size || 0;
+    const reader = fr.body.getReader();
+    const parts = [];
+    let got = 0;
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      parts.push(value);
+      got += value.length;
+      if (total) prog(`Mengirim video ke HP (${mbStr(got)} dari ${mbStr(total)})`, 0.7 + (0.3 * got) / total);
+    }
+    const info = st.info || {};
+    const file = new File(parts, slug(info.title || 'video', 50) + '.mp4', { type: 'video/mp4' });
+    prog('Video siap. Atur potongan di bawah.', 1);
+    if (info.channel && !document.querySelector('[data-k="channel"]').value.trim()) setOpt('channel', info.channel);
+    $('clips').innerHTML = '';
+    addClip({ s: '0:00', e: fmtTime(Math.min(180, Math.max(1, (info.end || 0) - (info.start || 0)) || 30)) });
+    await loadVideo(file, info);
+    if (info.title) $('vname').textContent = info.title;
+    onChange();
+  } catch (e) {
+    prog(e.message, null);
+    $('linkPct').textContent = '';
+    if (/tidak menyala|tidak bisa dihubungi/.test(e.message)) setPcState('Tidak menyala', false);
+  } finally {
+    btn.disabled = false;
+  }
+}
+(() => {
+  const h = new URLSearchParams(location.hash.slice(1));
+  if (h.get('pc') && h.get('k')) {
+    try { localStorage.setItem(PCK, JSON.stringify({ id: h.get('pc'), key: h.get('k') })); } catch { /* abaikan */ }
+    history.replaceState(null, '', location.pathname + location.search);
+  }
+  $('btnLink').onclick = fetchFromLink;
+  $('linkUrl').addEventListener('keydown', (e) => { if (e.key === 'Enter') fetchFromLink(); });
+  $('pcForget').onclick = () => {
+    if (!confirm('Lupakan KlipKu PC yang dipasangkan di HP ini?')) return;
+    localStorage.removeItem(PCK);
+    refreshPc();
+  };
+  checkPc();
 })();

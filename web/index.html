@@ -117,7 +117,7 @@ code{background:#0c0e12;border:1px solid var(--line);border-radius:5px;padding:0
 </style>
 </head>
 <body>
-<header><h1>Klip<span>Ku</span> 2</h1><small>link YouTube / Twitch + menit → clip siap upload</small><span class="ver" id="ver">v?</span></header>
+<header><h1>Klip<span>Ku</span> 2</h1><small>link YouTube / Twitch + menit → clip siap upload</small><button class="fix" id="btnHp" type="button" style="margin-left:auto">📱 Sambungkan HP</button><span class="ver" id="ver" style="margin-left:0">v?</span></header>
 <main>
 <section>
   <div class="banner" id="banner"></div>
@@ -1080,6 +1080,55 @@ $("#btnFolder").onclick=()=>api("/api/open-folder",{}).catch(e=>alert(e.message)
   $$(".only").forEach(e=>e.style.display=e.dataset.show===st.layout?"block":"none");
   refresh();
   try{ const a=await api("/api/active"); if(a.job){ st.job=a.job; $("#job").style.display="block"; $("#btnGo").disabled=true; poll(); } }catch(e){}
+})();
+</script>
+<div id="hpModal" style="display:none;position:fixed;inset:0;z-index:50;background:rgba(0,0,0,.6);align-items:center;justify-content:center;padding:16px">
+  <div class="card" style="max-width:420px;width:100%;margin:0">
+    <h2 style="justify-content:space-between">Sambungkan HP <button id="hpClose" type="button">Tutup</button></h2>
+    <div id="hpBody" class="hint" style="font-size:14px">Menyiapkan link aman...</div>
+    <div id="hpQr" style="display:none;background:#fff;padding:12px;border-radius:12px;width:fit-content;margin:12px auto"></div>
+    <div id="hpLink" class="hint" style="word-break:break-all;display:none"></div>
+    <div class="row" style="margin-top:12px">
+      <button class="fix" id="hpCopy" type="button" style="display:none">Salin link</button>
+      <button class="fix" id="hpStop" type="button" style="display:none">Matikan sambungan</button>
+    </div>
+  </div>
+</div>
+<script>
+(() => {
+  const el = (id) => document.getElementById(id);
+  const modal = el('hpModal'), body = el('hpBody');
+  let qrLib = null;
+  const loadQr = () => qrLib || (qrLib = new Promise((ok, no) => {
+    const sc = document.createElement('script');
+    sc.src = 'https://cdn.jsdelivr.net/npm/qrcode-generator@2.0.4/dist/qrcode.js';
+    sc.onload = () => ok(window.qrcode); sc.onerror = no; document.head.append(sc);
+  }));
+  async function show(st) {
+    if (st.status === 'aktif') {
+      body.innerHTML = '<b style="color:var(--ok)">Tersambung.</b> Scan QR ini dengan kamera HP <b>sekali saja</b>. '
+        + 'Setelah itu, selama KlipKu di laptop ini terbuka, di HP tinggal tempel link YouTube atau Twitch.'
+        + (st.registered ? '' : '<div class="warn">' + (st.error || 'Buku alamat sedang diperbarui...') + '</div>');
+      el('hpLink').textContent = st.link; el('hpLink').style.display = 'block';
+      el('hpCopy').style.display = el('hpStop').style.display = '';
+      try {
+        const q = (await loadQr())(0, 'M'); q.addData(st.link); q.make();
+        el('hpQr').innerHTML = q.createSvgTag({ cellSize: 5, margin: 0 }); el('hpQr').style.display = 'block';
+      } catch { el('hpQr').style.display = 'none'; }
+    } else {
+      body.innerHTML = st.error ? '<div class="err" style="display:block">' + st.error + '</div>' : 'Menyiapkan link aman...';
+      el('hpQr').style.display = el('hpLink').style.display = el('hpCopy').style.display = el('hpStop').style.display = 'none';
+    }
+  }
+  el('btnHp').onclick = async () => {
+    modal.style.display = 'flex'; body.textContent = 'Menyiapkan link aman (bisa 10-20 detik)...';
+    try { show(await (await fetch('/api/remote/start', { method: 'POST', body: '{}' })).json()); }
+    catch (e) { body.textContent = 'Gagal: ' + e.message; }
+  };
+  el('hpClose').onclick = () => { modal.style.display = 'none'; };
+  el('hpCopy').onclick = async () => { try { await navigator.clipboard.writeText(el('hpLink').textContent); el('hpCopy').textContent = 'Tersalin'; } catch {} };
+  el('hpStop').onclick = async () => { show(await (await fetch('/api/remote/stop', { method: 'POST', body: '{}' })).json()); body.textContent = 'Sambungan HP dimatikan. Nyalakan lagi kapan saja dengan tombol Sambungkan HP.'; };
+  fetch('/api/remote/status').then((r) => r.json()).then((st) => { if (st.status === 'aktif') el('btnHp').textContent = '📱 HP tersambung'; }).catch(() => {});
 })();
 </script>
 </body>

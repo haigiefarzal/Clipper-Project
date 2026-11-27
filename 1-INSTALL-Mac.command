@@ -9,8 +9,8 @@ if ! command -v brew >/dev/null 2>&1; then
   read -p "Tekan Enter untuk menutup..."
   exit 1
 fi
-echo "[1/2] Memasang Python, FFmpeg, Deno..."
-brew install python ffmpeg deno
+echo "[1/2] Memasang Python, FFmpeg, Deno, cloudflared..."
+brew install python ffmpeg deno cloudflared
 echo "[2/2] Memasang komponen KlipKu (yt-dlp + Whisper)..."
 python3 -m venv .venv
 .venv/bin/python -m pip install --upgrade pip

@@ -65,7 +65,18 @@
         <div class="cell sub"><span class="t muted" id="vmeta"></span></div>
       </div>
     </div>
-    <p class="foot">Video tidak dikirim ke mana pun. Mau pakai link YouTube atau Twitch? Pakai <a href="https://github.com/haigiefarzal/Clipper-Project/releases/latest" target="_blank" rel="noopener">KlipKu versi PC</a>.</p>
+    <p class="foot">File video diproses di perangkat ini dan tidak di-upload ke mana pun.</p>
+
+    <h2>Atau dari link</h2>
+    <div class="list">
+      <label class="cell col"><span class="t">Link YouTube atau Twitch</span><input type="url" id="linkUrl" placeholder="https://youtu.be/..." inputmode="url" autocomplete="off" spellcheck="false"></label>
+      <label class="cell"><span class="t">Mulai</span><input type="text" id="linkS" placeholder="0:00" inputmode="decimal"></label>
+      <label class="cell"><span class="t">Selesai</span><input type="text" id="linkE" placeholder="3:00" inputmode="decimal"></label>
+      <button class="cell action" id="btnLink" type="button">Ambil video</button>
+      <div class="cell col" id="linkProg" hidden><div class="lr"><span class="t" id="linkStage">Menghubungi KlipKu PC...</span><output id="linkPct"></output></div><div class="track"><i id="linkBar"></i></div></div>
+      <div class="cell" id="pcRow"><span class="t">KlipKu PC</span><span class="v"><span class="muted" id="pcState">Belum dipasangkan</span><button class="link danger" id="pcForget" type="button" hidden>Lupakan</button></span></div>
+    </div>
+    <p class="foot" id="linkFoot">YouTube tidak mengizinkan website mengunduh video, jadi link diunduh oleh KlipKu di laptop kamu. Pasangkan sekali: buka KlipKu di laptop, tekan <b>Sambungkan HP</b>, lalu scan QR-nya dengan HP ini. Setelah itu tinggal tempel link selama KlipKu di laptop terbuka.</p>
   </section>
 
   <!-- 2. POTONGAN -->

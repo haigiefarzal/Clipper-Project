@@ -97,22 +97,22 @@ button.cell, label.cell.action { cursor: pointer; }
 button.cell:active:not(:disabled), label.cell.action:active { background: var(--cell-press); }
 
 /* input di kanan baris */
-.cell input[type=text], .cell input[type=password], .cell select {
+.cell input[type=text], .cell input[type=url], .cell input[type=password], .cell select {
   font: inherit; color: var(--text2); background: transparent; border: 0; text-align: right; min-width: 0; padding: 0; outline: none;
 }
-.cell input[type=text], .cell input[type=password] { flex: 1.2; color: var(--text); }
+.cell input[type=text], .cell input[type=url], .cell input[type=password] { flex: 1.2; color: var(--text); }
 .cell input::placeholder, .cell textarea::placeholder { color: var(--text2); opacity: 0.7; }
 .cell select { -webkit-appearance: none; appearance: none; padding-right: 18px; max-width: 62%; cursor: pointer; text-overflow: ellipsis;
   background: no-repeat right center / 9px url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 16'%3E%3Cpath d='M2 2l6 6-6 6' fill='none' stroke='%238e8e93' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E"); }
 .cell select option, .cell select optgroup { color: initial; }
-.cell.col input[type=text], .cell.col textarea { text-align: left; width: 100%; background: var(--fill); border-radius: 9px; padding: 9px 11px; color: var(--text); font: inherit; font-size: 16px; border: 0; outline: none; }
+.cell.col input[type=text], .cell.col input[type=url], .cell.col textarea { text-align: left; width: 100%; background: var(--fill); border-radius: 9px; padding: 9px 11px; color: var(--text); font: inherit; font-size: 16px; border: 0; outline: none; }
 .cell textarea { resize: vertical; min-height: 64px; }
 .cell input:focus-visible, .cell textarea:focus-visible, .cell select:focus-visible { box-shadow: 0 0 0 2px var(--tint); border-radius: 6px; }
 .cell input[type=color] { -webkit-appearance: none; appearance: none; width: 30px; height: 30px; border: 0; border-radius: 50%; padding: 0; background: none; cursor: pointer; box-shadow: 0 0 0 0.5px var(--sep); }
 .cell input[type=color]::-webkit-color-swatch-wrapper { padding: 0; }
 .cell input[type=color]::-webkit-color-swatch { border: 0; border-radius: 50%; }
 .cell input[type=color]::-moz-color-swatch { border: 0; border-radius: 50%; }
-@media (max-width: 520px) { .cell input[type=text], .cell input[type=password], .cell select { font-size: 16px; } }
+@media (max-width: 520px) { .cell input[type=text], .cell input[type=url], .cell input[type=password], .cell select { font-size: 16px; } }
 
 /* switch */
 .sw { position: relative; width: 51px; height: 31px; flex: none; }

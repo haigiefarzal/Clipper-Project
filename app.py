@@ -45,6 +45,7 @@ OUT.mkdir(exist_ok=True)
 import engine_audio as EA  # noqa: E402
 import engine_fonts as EF  # noqa: E402
 import engine_hook as EH  # noqa: E402
+import engine_remote as ER  # noqa: E402
 import engine_subs as ES  # noqa: E402
 
 SFX, MUSIC = EA.SFX_DIR, EA.MUSIC_DIR
@@ -1468,9 +1469,150 @@ def channel_settings(cid):
     return ch
 
 
+# ============================================================================ HP: ambil video dari link
+
+REMOTE = {}
+SIO = (lambda: load_settings(), lambda d: save_settings(d))
+
+
+def remote_fetch(data):
+    """HP minta potongan dari link YouTube/Twitch. PC ini yang mengunduh, lalu HP mengambil file-nya."""
+    url = norm_url(data.get("url", ""))
+    if not url:
+        raise UserError("Tempel link YouTube atau Twitch dulu.")
+    s = parse_time(str(data.get("start") or "0"))
+    info = get_info(url)
+    dur = float(info.get("duration") or 0)
+    e_raw = str(data.get("end") or "").strip()
+    e = parse_time(e_raw) if e_raw else s + 180
+    if dur:
+        if s >= dur:
+            raise UserError(f"Menit mulai melebihi durasi video ({fmt_time(dur)}).")
+        e = min(e, dur)
+    if e <= s:
+        raise UserError("Waktu selesai harus setelah waktu mulai.")
+    if e - s > 600:
+        raise UserError("Maksimal 10 menit sekali ambil. Ambil beberapa kali kalau perlu.")
+    cutoff = time.time() - 3 * 3600
+    for k, j in list(REMOTE.items()):
+        if j["t"] < cutoff:
+            if j.get("file"):
+                try:
+                    Path(j["file"]).unlink()
+                except OSError:
+                    pass
+            REMOTE.pop(k, None)
+    plat = "Twitch" if info.get("platform") == "twitch" else "YouTube"
+    channel = info.get("channel") or info.get("uploader") or plat
+    if info.get("platform") == "twitch" and str(info.get("channel_id") or "").startswith("twitch:"):
+        channel = "twitch.tv/" + info["channel_id"][7:]
+    jid = uuid.uuid4().hex[:12]
+    job = {"id": jid, "status": "jalan", "stage": f"Menghubungi {plat}", "progress": 0.02, "file": None, "error": "",
+           "t": time.time(), "size": 0,
+           "info": {"title": info.get("title") or "", "channel": channel, "platform": plat, "start": s, "end": e,
+                    "source": source_link(info, s)}}
+    REMOTE[jid] = job
+    threading.Thread(target=_remote_run, args=(job, url, s, e), daemon=True).start()
+    return job
+
+
+def _remote_run(job, url, s, e):
+    d = WORK / "remote"
+    d.mkdir(exist_ok=True)
+    src = None
+    try:
+        src = download_section(url, s, e, d / f"src_{job['id']}",
+                               on_progress=lambda p, t="": job.update(progress=0.05 + 0.6 * p,
+                                                                      stage="Mengunduh potongan" + (f" ({t})" if t else "")))
+        out = d / f"hp_{job['id']}.mp4"
+        seg = max(0.1, e - s)
+        job.update(stage="Mengecilkan ukuran supaya cepat dikirim ke HP", progress=0.66)
+        last = None
+        for enc in encoder_chain({}):
+            def on_line(line):
+                m = re.match(r"out_time_us=(\d+)", line) or re.match(r"out_time_ms=(\d+)", line)
+                if m:
+                    job["progress"] = 0.66 + 0.33 * min(1.0, int(m.group(1)) / 1e6 / seg)
+            try:
+                run_lines(["ffmpeg", "-y", "-hide_banner", "-loglevel", "error", "-nostats", "-progress", "pipe:1",
+                           "-i", str(src), "-vf", "scale=w='min(1920,iw)':h=-2"] + phone_codec_args(enc)
+                          + ["-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "160k", "-ac", "2", "-movflags", "+faststart",
+                             str(out)], on_line)
+                last = None
+                break
+            except UserError as ex:
+                last = ex
+        if last:
+            raise last
+        job.update(status="selesai", progress=1.0, stage="Siap dikirim ke HP", file=str(out), size=out.stat().st_size)
+        log(f"HP: potongan siap ({out.stat().st_size / 1e6:.0f} MB).")
+    except Exception as ex:  # noqa
+        job.update(status="gagal", error=str(ex)[-700:])
+    finally:
+        if src:
+            try:
+                Path(src).unlink()
+            except OSError:
+                pass
+
+
+def phone_codec_args(enc):
+    """Video untuk dikirim ke HP: target sekitar 6 Mbps (1080p), supaya cepat sampai tanpa terlihat pecah."""
+    rate = ["-b:v", "6M", "-maxrate", "9M", "-bufsize", "12M"]
+    if enc == "h264_nvenc":
+        return ["-c:v", "h264_nvenc", "-preset", "p4", "-rc", "vbr"] + rate + ["-profile:v", "high"]
+    if enc == "h264_qsv":
+        return ["-c:v", "h264_qsv", "-preset", "faster"] + rate + ["-profile:v", "high"]
+    if enc == "h264_amf":
+        return ["-c:v", "h264_amf", "-quality", "speed", "-rc", "vbr_peak"] + rate
+    if enc == "h264_videotoolbox":
+        return ["-c:v", "h264_videotoolbox", "-b:v", "6M", "-maxrate", "9M", "-profile:v", "high"]
+    return ["-c:v", "libx264", "-preset", "veryfast", "-crf", "23", "-maxrate", "6M", "-bufsize", "12M",
+            "-profile:v", "high", "-threads", "0"]
+
+
+def remote_public(job):
+    return {k: job[k] for k in ("id", "status", "stage", "progress", "error", "size", "info")}
+
+
 class Handler(BaseHTTPRequestHandler):
     def log_message(self, fmt, *args):
         pass
+
+    def end_headers(self):
+        o = getattr(self, "_cors", None)
+        if o:
+            self.send_header("Access-Control-Allow-Origin", o)
+            self.send_header("Vary", "Origin")
+            self.send_header("Access-Control-Expose-Headers", "Content-Length, Content-Disposition")
+        super().end_headers()
+
+    def _gate(self):
+        """Lewat tunnel (dari HP) hanya boleh ke /api/remote/fetch|job|file|ping."""
+        self._cors = ER.cors_origin(self.headers.get("Origin"))
+        if ER.is_remote(self.headers):
+            path = urlparse(self.path).path
+            if not path.startswith("/api/remote/") or path in ("/api/remote/start", "/api/remote/stop",
+                                                               "/api/remote/status"):
+                self.send_error(403)
+                return False
+        return True
+
+    def _key_ok(self):
+        if ER.authorized(self.headers, SIO):
+            return True
+        self.send_json({"error": "Kunci salah. Pasangkan ulang HP dari KlipKu PC (tombol Sambungkan HP)."}, 403)
+        return False
+
+    def do_OPTIONS(self):
+        self._cors = ER.cors_origin(self.headers.get("Origin"))
+        self.send_response(204)
+        if self._cors:
+            self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+            self.send_header("Access-Control-Allow-Headers", "Content-Type, X-KlipKu-Key")
+            self.send_header("Access-Control-Max-Age", "600")
+        self.send_header("Content-Length", "0")
+        self.end_headers()
 
     def send_json(self, data, code=200):
         body = json.dumps(data, ensure_ascii=False).encode("utf-8")
@@ -1536,7 +1678,27 @@ class Handler(BaseHTTPRequestHandler):
         return p
 
     def do_GET(self):
+        if not self._gate():
+            return
         path = urlparse(self.path).path
+        if path == "/api/remote/status":
+            return self.send_json(ER.status(SIO))
+        if path == "/api/remote/ping":
+            if self._key_ok():
+                self.send_json({"ok": True, "version": VERSION})
+            return
+        if path.startswith("/api/remote/job/"):
+            if not self._key_ok():
+                return
+            job = REMOTE.get(path.split("/")[4])
+            return self.send_json(remote_public(job)) if job else self.send_json({"error": "tidak ada"}, 404)
+        if path.startswith("/api/remote/file/"):
+            if not self._key_ok():
+                return
+            job = REMOTE.get(path.split("/")[4])
+            if not job or not job.get("file"):
+                return self.send_json({"error": "file belum siap"}, 404)
+            return self.send_file(job["file"], "video/mp4")
         if path in ("/", "/index.html"):
             return self.send_file(WEB / "index.html")
         if path.startswith("/fontfile/"):
@@ -1579,9 +1741,26 @@ class Handler(BaseHTTPRequestHandler):
         self.send_error(404)
 
     def do_POST(self):
+        if not self._gate():
+            return
         path = urlparse(self.path).path
         try:
             data = self.read_json()
+            if path == "/api/remote/start":
+                try:
+                    res = ER.start(self.server.server_address[1], SIO, log)
+                    ER.set_auto(SIO, True)
+                    return self.send_json(res)
+                except RuntimeError as ex:
+                    return self.send_json(dict(ER.status(SIO), error=str(ex)))
+            if path == "/api/remote/stop":
+                ER.stop(SIO, log)
+                ER.set_auto(SIO, False)
+                return self.send_json(ER.status(SIO))
+            if path == "/api/remote/fetch":
+                if not self._key_ok():
+                    return
+                return self.send_json(remote_public(remote_fetch(data)))
             if path == "/api/info":
                 info = get_info(data.get("url", ""))
                 ch = channel_settings(info.get("channel_id"))
@@ -1723,7 +1902,8 @@ def is_klipku(port):
     import urllib.request
     try:
         with urllib.request.urlopen(f"http://127.0.0.1:{port}/api/status", timeout=2) as r:
-            return "fonts" in json.loads(r.read().decode("utf-8"))
+            d = json.loads(r.read().decode("utf-8"))
+            return "version" in d or "fonts" in d
     except Exception:
         return False
 
@@ -1780,6 +1960,8 @@ def main():
     port = 8765
     for p in range(8765, 8785):
         try:
+            # Windows: tanpa ini, dua KlipKu bisa "berbagi" port yang sama dan versi lama yang menjawab
+            ThreadingHTTPServer.allow_reuse_address = not sys.platform.startswith("win")
             server = ThreadingHTTPServer(("127.0.0.1", p), Handler)
             port = p
             break
@@ -1797,6 +1979,13 @@ def main():
         if k != "node" and not v:
             log(f"PERINGATAN: {k} belum terpasang/terdeteksi — jalankan installer lagi.")
     log("=" * 52)
+    if (load_settings().get("remote") or {}).get("auto"):
+        def _auto_remote():
+            try:
+                ER.start(port, SIO, log)
+            except Exception as ex:  # noqa
+                log(f"Sambungan HP belum bisa dinyalakan: {ex}")
+        threading.Thread(target=_auto_remote, daemon=True).start()
     if "--no-browser" not in sys.argv:
         threading.Timer(1.0, lambda: webbrowser.open(url)).start()
     try:
