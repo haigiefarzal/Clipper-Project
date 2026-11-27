@@ -37,7 +37,7 @@ WORK = APP / "work"
 OUT = APP / "hasil"
 SETTINGS = WORK / "settings.json"
 W, H = 1080, 1920
-VERSION = "2.3"
+VERSION = "2.4"
 
 WORK.mkdir(exist_ok=True)
 OUT.mkdir(exist_ok=True)

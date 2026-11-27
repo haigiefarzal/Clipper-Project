@@ -1,6 +1,19 @@
 ===================================================================
-  KLIPKU 2.3 — Link YouTube / Twitch + menit  ->  clip siap upload
+  KLIPKU 2.4: Link YouTube / Twitch + menit  ->  clip siap upload
 ===================================================================
+
+YANG BARU DI VERSI 2.4: BIKIN CLIP DARI HP PAKAI LINK
+- Di HP buka https://projectgieclips.pages.dev (atau versi GitHub / Netlify).
+- Pasangkan sekali: di laptop klik tombol "Sambungkan HP" (pojok kanan atas),
+  lalu scan QR-nya dengan kamera HP.
+- Setelah itu, selama KlipKu di laptop terbuka, di HP tinggal tempel link
+  YouTube / Twitch di bagian "Atau dari link", isi menit, tekan Ambil video.
+  Laptop yang mengunduh (YouTube tidak mengizinkan website mengunduh langsung),
+  lalu video dikirim ke HP dan sisanya diproses di HP.
+- Sambungan menyala sendiri tiap KlipKu dibuka. Matikan lewat tombol yang sama.
+- Aman: link berisi kunci rahasia. Orang lain tidak bisa memakai laptop kamu,
+  dan dari HP hanya bisa mengunduh video (pengaturan & kunci API tidak bisa dibuka).
+- Perlu program cloudflared (dipasang otomatis oleh 1-INSTALL).
 
 YANG BARU DI VERSI 2.3: TWITCH
 - Tempel link Twitch di kolom link, sama seperti YouTube:
@@ -83,8 +96,8 @@ A. UPDATE DARI VERSI 1 (kalau KlipKu sudah terpasang)
    Folder .venv, work, dan hasil kamu tetap aman.
 4. Klik dua kali 2-BUKA-KlipKu-Windows.bat.
    Pertama kali, KlipKu memasang komponen baru (OpenCV, fonttools) ±1-3 menit.
-5. Di jendela hitam harus muncul: "KlipKu versi 2.3 jalan di ...".
-   Pojok kanan atas halaman juga menulis "versi 2.3".
+5. Di jendela hitam harus muncul: "KlipKu versi 2.4 jalan di ...".
+   Pojok kanan atas halaman juga menulis "versi 2.4".
 
 INSTAL BARU (belum pernah pasang)
 1. Ekstrak ZIP, buka folder klipku, klik dua kali 1-INSTALL-Windows.bat

@@ -4,7 +4,7 @@
 
 KlipKu adalah aplikasi clipper yang jalan di komputer kamu sendiri. Tempel link VOD YouTube atau Twitch (VOD maupun clip), pilih menitnya, dan KlipKu membuat clip vertikal (9:16), landscape (16:9), atau kotak (1:1) lengkap dengan subtitle otomatis, judul hook, kamera AI, dan watermark, tanpa perlu edit manual.
 
-![Versi](https://img.shields.io/badge/versi-2.3-ff3d7f)
+![Versi](https://img.shields.io/badge/versi-2.4-ff3d7f)
 ![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS-blue)
 ![Python](https://img.shields.io/badge/python-3.10%2B-yellow)
 ![Lisensi](https://img.shields.io/badge/lisensi-MIT-green)
@@ -15,13 +15,21 @@ KlipKu adalah aplikasi clipper yang jalan di komputer kamu sendiri. Tempel link 
 
 | | 🌐 **KlipKu Web** | 💻 **KlipKu PC** |
 |---|---|---|
-| Buka | **https://haigiefarzal.github.io/Clipper-Project/** | Download & install (lihat di bawah) |
-| Sumber video | Upload file video | Tempel link YouTube / Twitch langsung |
+| Buka | **https://projectgieclips.pages.dev**<br>atau [projectgieclips.netlify.app](https://projectgieclips.netlify.app) / [GitHub Pages](https://haigiefarzal.github.io/Clipper-Project/) | Download & install (lihat di bawah) |
+| Sumber video | Upload file video, atau tempel link YouTube / Twitch kalau HP sudah dipasangkan dengan KlipKu PC | Tempel link YouTube / Twitch langsung |
 | Install | Tidak perlu | Sekali, otomatis |
 | Diproses di | Browser kamu (GPU lewat WebGPU/WebCodecs) | Komputer kamu (FFmpeg + Whisper) |
 | Fitur | Semua fitur PC kecuali link YouTube/Twitch dan sound effect bawaan (upload SFX sendiri) | Semua fitur |
 
 KlipKu Web jalan di **Chrome, Edge, atau Safari terbaru**, termasuk di iPhone dan Android. Video tidak di-upload ke server mana pun. Subtitle jalan tanpa kunci API (model Whisper di browser), atau pakai kunci Groq milikmu sendiri supaya lebih cepat.
+
+### 📱 Bikin clip dari HP pakai link
+
+1. Di laptop, buka KlipKu PC lalu klik **Sambungkan HP** (pojok kanan atas).
+2. Scan QR-nya dengan kamera HP. Cukup **sekali**.
+3. Selama KlipKu di laptop terbuka, di HP tinggal tempel link YouTube / Twitch di bagian **Atau dari link**.
+
+Laptop yang mengunduh potongannya (YouTube tidak mengizinkan website mengunduh langsung), lalu video dikirim ke HP lewat sambungan aman (Cloudflare Tunnel + kunci rahasia di QR). Dari HP hanya bisa mengunduh video. Pengaturan dan kunci API di laptop tidak bisa dibuka.
 
 ---
 
@@ -107,6 +115,8 @@ Browser akan terbuka otomatis di **http://127.0.0.1:8765**. Biarkan jendela hita
 ├── engine_subs.py          # Subtitle (Whisper) + koreksi AI + judul AI
 ├── engine_hook.py          # Template judul hook, banner, progress bar, teks penutup
 ├── engine_audio.py         # Sound effect, musik, zoom kejut, potong jeda, volume
+├── engine_remote.py        # Sambungkan HP (tunnel aman + kunci)
+├── functions/              # Buku alamat HP (Cloudflare Pages Function)
 ├── engine_fonts.py         # Pengelola font
 ├── web/index.html          # Tampilan aplikasi PC
 ├── docs/                   # KlipKu Web (GitHub Pages): Mediabunny + Transformers.js + YuNet
