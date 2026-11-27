@@ -1,6 +1,6 @@
 // Penyusun gambar per frame: layout kamera + subtitle + hook + watermark + logo.
 // Angka & aturan sama dengan KlipKu versi PC (app.py + engine_subs.py), hanya digambar di canvas.
-import { cssFont } from './fonts.js';
+import { cssFont, getFont } from './fonts.js';
 
 export const ASPECTS = { '9:16': [1080, 1920], '16:9': [1920, 1080], '1:1': [1080, 1080] };
 export const HL = { kuning: '#FFFF00', hijau: '#66FF00', merah: '#FF3A3A', biru: '#40C0FF', pink: '#FF6BC8', oranye: '#FF9000', putih: '#FFFFFF' };
@@ -247,9 +247,9 @@ function hexA(hex, alpha) {
 }
 
 // ------------------------------------------------------------------ watermark
-function wmCorner(pos, W, H) {
+function wmCorner(pos, W, H, safe = 0) {
   const m = Math.round(W * 0.04);
-  const top = Math.round(H * 0.06), bot = Math.round(H > W ? H * 0.12 : H * 0.07);
+  const top = Math.round(Math.max(H * 0.06, safe + H * 0.012)), bot = Math.round(H > W ? H * 0.12 : H * 0.07);
   return ({
     'kiri-atas': [7, m, top], 'kanan-atas': [9, W - m, top], 'kiri-bawah': [1, m, H - bot],
     'kanan-bawah': [3, W - m, H - bot], 'atas-tengah': [8, W / 2, top], 'bawah-tengah': [2, W / 2, H - bot],
@@ -257,7 +257,7 @@ function wmCorner(pos, W, H) {
   })[pos] || [9, W - m, top];
 }
 
-export function drawWatermark(ctx, t, o, W, H, fontId, dur, force = false) {
+export function drawWatermark(ctx, t, o, W, H, fontId, dur, force = false, safe = 0) {
   const text = clean(o.wm_text);
   if (!text) return;
   const mode = o.wm_mode || 'pojok';
@@ -270,7 +270,7 @@ export function drawWatermark(ctx, t, o, W, H, fontId, dur, force = false) {
   const px = size * EM;
   const ang = num(o.wm_angle, 30);
   if (mode === 'pojok') {
-    const [an, x, y] = wmCorner(o.wm_pos || 'kanan-atas', W, H);
+    const [an, x, y] = wmCorner(o.wm_pos || 'kanan-atas', W, H, safe);
     drawTextEvent(ctx, tok(), { fontId, px, x, y, an });
   } else if (mode === 'diagonal' || mode === 'belakang') {
     drawTextEvent(ctx, tok(), { fontId, px, x: W / 2, y: H / 2, an: 5, rotate: ang });
@@ -291,17 +291,18 @@ export function drawWatermark(ctx, t, o, W, H, fontId, dur, force = false) {
     const cycle = ['kanan-atas', 'kanan-bawah', 'kiri-bawah', 'kiri-atas'];
     const i = Math.floor(t / every);
     const a = i * every, b = Math.min(dur, a + every);
-    const [an, x, y] = wmCorner(cycle[i % 4], W, H);
+    const [an, x, y] = wmCorner(cycle[i % 4], W, H, safe);
     drawTextEvent(ctx, tok(), { fontId, px, x, y, an, alpha: fadeAlpha(t, a, b, 0.25, 0.25) });
   }
 }
 
 // ------------------------------------------------------------------ logo
-export function drawLogo(ctx, logo, o, W, H) {
+export function drawLogo(ctx, logo, o, W, H, safe = 0) {
   if (!logo || !o.logo_on) return;
   const lw = even((W * num(o.logo_size, 18)) / 100);
   const lh = (lw * logo.height) / logo.width;
-  const m = Math.round(W * 0.04), top = Math.round(H * 0.06), bot = Math.round(H * (H > W ? 0.12 : 0.07));
+  const m = Math.round(W * 0.04), bot = Math.round(H * (H > W ? 0.12 : 0.07));
+  const top = Math.round(Math.max(H * 0.06, safe + H * 0.012));
   const pos = {
     'kiri-atas': [m, top], 'kanan-atas': [W - lw - m, top], 'kiri-bawah': [m, H - lh - bot],
     'kanan-bawah': [W - lw - m, H - lh - bot], 'atas-tengah': [(W - lw) / 2, top],
@@ -314,62 +315,377 @@ export function drawLogo(ctx, logo, o, W, H) {
   ctx.restore();
 }
 
+// ------------------------------------------------------------------ judul hook (5 template)
+// Rumus tata letak SAMA dengan engine_hook.py / hookLayout() KlipKu PC, supaya hasilnya sama.
+const QUOTE = [[0.185, 0], [0.667, 0], [0.481, 0.342], [1, 0.342], [1, 1], [0, 1], [0, 0.395]];
+const hexRgb = (h) => { const m = /^#?([0-9a-f]{6})$/i.exec(h || ''); if (!m) return [255, 255, 255]; const v = m[1]; return [parseInt(v.slice(0, 2), 16), parseInt(v.slice(2, 4), 16), parseInt(v.slice(4, 6), 16)]; };
+const isLight = (h) => { const [r, g, b] = hexRgb(h); return 0.299 * r + 0.587 * g + 0.114 * b > 150; };
+const shade = (h, f) => '#' + hexRgb(h).map((x) => Math.floor(x * f).toString(16).padStart(2, '0')).join('');
+const rgba = (h, a) => { const [r, g, b] = hexRgb(h); return `rgba(${r},${g},${b},${a})`; };
+
+export const HOOK_TEMPLATES = ['kutipan', 'kotak', 'label', 'strip', 'polos'];
+const TPL_DEF = {
+  kutipan: { bg: '#ffffff', txt: '#161616', acc: '#57c2ae', align: 'kiri' },
+  kotak: { bg: '#ffffff', txt: '#000000', acc: '#ff3d68', align: 'tengah' },
+  label: { bg: '#000000', txt: '#ffffff', acc: '#ffd400', align: 'kiri' },
+  strip: { bg: '#000000', txt: '#ffffff', acc: '#ffd400', align: 'kiri' },
+  polos: { bg: '#000000', txt: '#ffffff', acc: '#ffd400', align: 'tengah' },
+};
+export const hookDefaults = (tpl) => TPL_DEF[tpl] || TPL_DEF.kutipan;
+
+export function hookTokens(text, upper) {
+  text = String(text ?? '').replace(/[{}\\]/g, '').replace(/\n/g, ' ').trim();
+  if (upper) text = text.toLocaleUpperCase('id');
+  const out = [];
+  let hl = false;
+  for (const raw of text.split(/(\|)|\s+/)) {
+    if (raw === undefined || raw === '') continue;
+    if (raw === '|') { out.push(null); continue; }
+    const word = raw.replace(/^\*+|\*+$/g, '');
+    const lead = raw.length - raw.replace(/^\*+/, '').length, trail = raw.length - raw.replace(/\*+$/, '').length;
+    if (!word) continue;
+    if (lead) hl = true;
+    out.push([word, hl]);
+    if (trail) hl = false;
+  }
+  return out;
+}
+
+function hookWrap(tok, maxW, measure) {
+  const lines = [];
+  let cur = [];
+  for (const t of tok) {
+    if (t === null) { if (cur.length) lines.push(cur); cur = []; continue; }
+    const tr = cur.concat([t]);
+    if (cur.length && measure(tr.map((x) => x[0]).join(' ')) > maxW) { lines.push(cur); cur = [t]; } else cur = tr;
+  }
+  if (cur.length) lines.push(cur);
+  const n = lines.length;
+  if (n >= 2 && lines[n - 1].length === 1 && lines[n - 2].length >= 3) {
+    const p = lines[n - 2], cand = [p[p.length - 1]].concat(lines[n - 1]);
+    if (measure(cand.map((x) => x[0]).join(' ')) <= maxW) { lines[n - 1] = cand; lines[n - 2] = p.slice(0, -1); }
+  }
+  return lines;
+}
+
+/** Pengaturan hook dari opsi (termasuk pengaturan lama hook_box). */
+export function hookCfg(o, W, H, over = {}) {
+  let tpl = over.tpl || o.hook_tpl;
+  let bg = o.hook_bg, txt = o.hook_txt, acc = o.hook_acc, align = o.hook_align;
+  if (!tpl) {
+    const box = o.hook_box || '';
+    if (box === 'hitam') { tpl = 'kotak'; bg = '#000000'; txt = '#ffffff'; }
+    else if (box === 'polos') { tpl = 'polos'; txt = TEXTCOL[o.hook_color] || '#ffffff'; }
+    else if (box === 'putih') { tpl = 'kotak'; bg = '#ffffff'; txt = '#000000'; }
+    else tpl = 'kutipan';
+    align ||= box ? 'tengah' : 'kiri';
+  }
+  if (!HOOK_TEMPLATES.includes(tpl)) tpl = 'kutipan';
+  const d = hookDefaults(tpl);
+  return {
+    tpl, W, H,
+    size: over.size || num(o.hook_size, 58),
+    align: over.align || align || d.align,
+    pos: over.pos || o.hook_pos || 'auto',
+    x: over.x !== undefined ? over.x : num(o.hook_x, 0),
+    y: over.y !== undefined ? over.y : num(o.hook_y, 20),
+    wpct: num(o.hook_w, 84),
+    bg: bg || d.bg, txt: txt || d.txt, acc: acc || d.acc,
+    bg_op: (o.hook_bg_op === '' || o.hook_bg_op == null ? (tpl === 'strip' ? 75 : 100) : +o.hook_bg_op) / 100,
+    outline: num(o.hook_outline, 10),
+    upper: o.hook_upper !== false,
+    round: !!o.hook_round,
+    label: over.label !== undefined ? over.label : (o.hook_label || ''),
+    safe: over.safe || 0,
+    anim: over.anim || o.hook_anim || 'halus',
+  };
+}
+
+/** Teks -> elemen tata letak (kotak, teks, tanda kutip, label). */
+export function hookPrepare(text, cfg, fontId, autoCy) {
+  const font = getFont(fontId);
+  const E = cfg.size * 1.015;
+  const ctx = measureCtx();
+  const measure = (s) => { ctx.font = cssFont(fontId, E); return ctx.measureText(s).width; };
+  const tok = hookTokens(text, cfg.upper);
+  const pad = cfg.tpl === 'kutipan' || cfg.tpl === 'kotak' ? 1.2 * E : 0;
+  const lines = hookWrap(tok, (cfg.W * cfg.wpct) / 100 - pad, measure);
+  const widths = lines.map((l) => measure(l.map((x) => x[0]).join(' ')));
+  let labelW = null;
+  if (cfg.tpl === 'label' && cfg.label) {
+    cfg.label = clean(cfg.label).toLocaleUpperCase('id');
+    ctx.font = cssFont(fontId, 0.5 * E);
+    labelW = ctx.measureText(cfg.label).width;
+  }
+  return hookLayout(lines, widths, cfg, font.cap || 0.7, autoCy, labelW);
+}
+let mc = null;
+const measureCtx = () => (mc ??= document.createElement('canvas').getContext('2d'));
+
+function hookLayout(lines, widths, cfg, capR, autoCy, labelW) {
+  const { W, H } = cfg;
+  const E = cfg.size * 1.015, cap = capR * E, up = cfg.upper;
+  const inkTop = cap * (up ? 1 : 1.04), inkBot = up ? 0 : 0.21 * E, ink = inkTop + inkBot, tpl = cfg.tpl;
+  const boxed = tpl === 'kutipan' || tpl === 'kotak', padx = 0.6 * E, pady = 0.22 * E, gap = 0.13 * E, n = Math.max(1, lines.length);
+  let lh, pitch;
+  if (boxed) { lh = ink + 2 * pady; pitch = lh + gap; }
+  else { lh = ink; const ol = tpl === 'polos' || tpl === 'label' ? (cfg.size * cfg.outline) / 100 : 0; pitch = ink + 0.3 * E + 1.2 * ol; }
+  const textH = n * lh + (n - 1) * (pitch - lh);
+  let headH = 0, badge = null, lab = null;
+  if (tpl === 'kutipan') { badge = { w: 2.2 * E, h: 1.3 * E }; headH = badge.h + 0.5 * E; }
+  else if (tpl === 'label' && cfg.label) {
+    const le = 0.5 * E;
+    lab = { em: le, padx: 0.42 * le, h: (cap / E) * le + 2 * 0.45 * le, tw: labelW || 0 };
+    lab.w = lab.tw + 2 * lab.padx; headH = lab.h + 0.32 * E;
+  }
+  const stripPad = tpl === 'strip' ? 0.45 * E : 0, blockH = headH + textH, portrait = H > W, pos = cfg.pos;
+  let top;
+  if (pos === 'atas') top = H * (portrait ? 0.085 : 0.07);
+  else if (pos === 'tengah') top = H * 0.5 - blockH / 2;
+  else if (pos === 'bawah') top = H * (portrait ? 0.8 : 0.78) - blockH / 2;
+  else if (pos === 'bebas') top = (H * cfg.y) / 100 - blockH / 2;
+  else top = Math.max(H * 0.035 + stripPad, autoCy - blockH / 2);
+  if ((pos === 'auto' || pos === 'atas') && cfg.safe) top = Math.max(top, cfg.safe + stripPad + 0.01 * H);
+  const align = cfg.align;
+  let ax;
+  if (pos === 'bebas' && cfg.x > 0) ax = (W * cfg.x) / 100;
+  else {
+    ax = W * ({ kiri: 0.085, tengah: 0.5, kanan: 0.915 }[align] || 0.5);
+    if (tpl === 'strip' && align !== 'tengah') ax = W * (align === 'kiri' ? 0.07 : 0.93);
+  }
+  const place = (w) => (align === 'kiri' ? ax : align === 'tengah' ? ax - w / 2 : ax - w);
+  const el = { boxes: [], texts: [], badge: null, label: null, marks: [], E, ax, top, blockH };
+  let y = top;
+  if (badge) {
+    const bx = place(badge.w);
+    el.badge = { x: bx, y, w: badge.w, h: badge.h };
+    const mw = 0.585 * E, mh = 0.83 * E, mg = 0.13 * E, mx = bx + (badge.w - (2 * mw + mg)) / 2, my = y + (badge.h - mh) / 2 + 0.04 * E;
+    for (let k = 0; k < 2; k++) { const ox = mx + k * (mw + mg); el.marks.push(QUOTE.map(([px, py]) => [ox + px * mw, my + py * mh])); }
+    y += headH;
+  } else if (lab) {
+    const lx = place(lab.w);
+    el.label = { x: lx, y, w: lab.w, h: lab.h, em: lab.em, tx: lx + lab.padx, base: y + lab.h / 2 + ((cap / E) * lab.em) / 2 };
+    y += headH;
+  }
+  lines.forEach((line, i) => {
+    const tw = widths[i] || 0, ly = y + i * pitch;
+    if (boxed) { const bw = tw + 2 * padx, bx = place(bw); el.boxes.push({ x: bx, y: ly, w: bw, h: lh }); el.texts.push({ x: bx + padx, base: ly + pady + inkTop, line, w: tw }); }
+    else el.texts.push({ x: place(tw), base: ly + inkTop, line, w: tw });
+  });
+  if (tpl === 'strip') {
+    el.boxes.unshift({ x: 0, y: top - stripPad, w: W, h: blockH + 2 * stripPad, strip: true },
+      { x: 0, y: top - stripPad, w: 0.16 * E, h: blockH + 2 * stripPad, accent: true });
+  }
+  const xs = [], xe = [];
+  el.boxes.filter((b) => !b.strip).forEach((b) => { xs.push(b.x); xe.push(b.x + b.w); });
+  el.texts.forEach((t) => { xs.push(t.x); xe.push(t.x + t.w); });
+  if (el.badge) { xs.push(el.badge.x); xe.push(el.badge.x + el.badge.w); }
+  if (el.label) { xs.push(el.label.x); xe.push(el.label.x + el.label.w); }
+  el.bounds = { x0: xs.length ? Math.min(...xs) : ax, y0: top, x1: xe.length ? Math.max(...xe) : ax, y1: top + blockH };
+  return el;
+}
+
+function rrect(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  if (r <= 0.5) { ctx.rect(x, y, w, h); return; }
+  r = Math.min(r, w / 2, h / 2);
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+}
+
+/** Gambar hook. t = waktu sekarang, [t0, t1] = waktu tampil (animasi naik + fade seperti versi PC). */
+export function paintHook(ctx, el, cfg, fontId, t = 0, t0 = -1, t1 = 1e9, alphaMul = 1) {
+  if (t < t0 || t >= t1) return;
+  const smooth = cfg.anim !== 'none';
+  let k = 0;
+  const anim = () => {
+    const st = smooth ? Math.min(t0 + Math.min(k, 6) * 0.06, t1) : t0;
+    k++;
+    if (t < st) return null;
+    let a = smooth ? Math.min(1, (t - st) / 0.2) : 1;
+    a = Math.min(a, (t1 - t) / (smooth ? 0.18 : 0.12));
+    const dy = smooth ? 16 * (1 - Math.min(1, (t - st) / 0.26)) : 0;
+    return { a: Math.max(0, Math.min(1, a)) * alphaMul, dy };
+  };
+  const tpl = cfg.tpl;
+  ctx.save();
+  for (const b of el.boxes) {
+    const m = anim(); if (!m) continue;
+    ctx.globalAlpha = m.a;
+    if (b.strip) ctx.fillStyle = rgba(cfg.bg, cfg.bg_op);
+    else if (b.accent) ctx.fillStyle = cfg.acc;
+    else ctx.fillStyle = rgba(cfg.bg, cfg.bg_op);
+    rrect(ctx, b.x, b.y + m.dy, b.w, b.h, !b.strip && !b.accent && cfg.round ? b.h * 0.22 : 0);
+    ctx.fill();
+  }
+  if (el.badge) {
+    const b = el.badge, m = anim();
+    if (m) {
+      ctx.globalAlpha = m.a; ctx.fillStyle = rgba(cfg.acc, 0.93);
+      rrect(ctx, b.x, b.y + m.dy, b.w, b.h, cfg.round ? b.h * 0.16 : 0); ctx.fill();
+    }
+    for (const poly of el.marks) {
+      const mm = anim(); if (!mm) continue;
+      ctx.globalAlpha = mm.a; ctx.fillStyle = '#fff'; ctx.beginPath();
+      poly.forEach(([px, py], i) => (i ? ctx.lineTo(px, py + mm.dy) : ctx.moveTo(px, py + mm.dy)));
+      ctx.closePath(); ctx.fill();
+    }
+  }
+  if (el.label) {
+    const l = el.label, m = anim(), m2 = anim();
+    if (m) { ctx.globalAlpha = m.a; ctx.fillStyle = cfg.acc; rrect(ctx, l.x, l.y + m.dy, l.w, l.h, cfg.round ? l.h * 0.25 : 0); ctx.fill(); }
+    if (m2) {
+      ctx.globalAlpha = m2.a; ctx.fillStyle = isLight(cfg.acc) ? '#111111' : '#ffffff';
+      ctx.font = cssFont(fontId, l.em); ctx.textBaseline = 'alphabetic'; ctx.textAlign = 'left';
+      ctx.fillText(cfg.label, l.tx, l.base + m2.dy);
+    }
+  }
+  const hl = (tpl === 'kutipan' || tpl === 'kotak') && isLight(cfg.bg) && isLight(cfg.acc) ? shade(cfg.acc, 0.62) : cfg.acc;
+  const ol = tpl === 'polos' || tpl === 'label' ? (cfg.size * cfg.outline) / 100 : 0;
+  ctx.font = cssFont(fontId, el.E); ctx.textBaseline = 'alphabetic'; ctx.textAlign = 'left'; ctx.lineJoin = 'round';
+  for (const tx of el.texts) {
+    const m = anim(); if (!m) continue;
+    ctx.globalAlpha = m.a;
+    let pre = '';
+    for (const [w, h] of tx.line) {
+      const x = tx.x + ctx.measureText(pre).width;
+      pre += w + ' ';
+      if (ol > 0) {
+        ctx.lineWidth = ol * 2;
+        ctx.strokeStyle = 'rgba(0,0,0,0.62)'; ctx.strokeText(w, x + ol * 0.45, tx.base + m.dy + ol * 0.45);
+        ctx.strokeStyle = 'rgba(0,0,0,0.9)'; ctx.strokeText(w, x, tx.base + m.dy);
+      }
+      ctx.fillStyle = h ? hl : cfg.txt; ctx.fillText(w, x, tx.base + m.dy);
+    }
+  }
+  ctx.restore();
+}
+
+// ------------------------------------------------------------------ banner program / sponsor
+/** Band di atas: teks kiri + logo + teks kanan (atau gambar PNG jadi). -> {bottom, draw(ctx)} */
+export function bannerLayout(o, W, H, fontId, logoImg, bannerImg) {
+  if (!o.banner_on) return null;
+  if (o.banner_mode === 'gambar') {
+    if (!bannerImg) return null;
+    const bw = even((W * num(o.banner_w, 100)) / 100), bh = (bw * bannerImg.height) / bannerImg.width, y = (H * num(o.banner_y, 4.5)) / 100;
+    return { bottom: y + bh, draw: (ctx) => ctx.drawImage(bannerImg, (W - bw) / 2, y, bw, bh) };
+  }
+  const sc = H > W ? W / 1080 : H / 1080;
+  const bh = num(o.banner_h, 104) * sc, by = (H * num(o.banner_y, 4.5)) / 100;
+  let s1 = num(o.banner_size, 30) * sc, s2 = num(o.banner_size2, 40) * sc;
+  const t1 = clean(o.banner_text1), t2 = clean(o.banner_text2), lx = num(o.banner_lx, 0), cy = by + bh / 2;
+  const lh = bh * 0.72, lw = logoImg ? (lh * logoImg.width) / logoImg.height : 0;
+  const ctx0 = measureCtx();
+  const mw = (s, em) => { if (!s) return 0; ctx0.font = cssFont(fontId, em); return ctx0.measureText(s).width; };
+  let w1 = mw(t1, s1 * 1.015), w2 = mw(t2, s2 * 1.015), g1 = t1 && (lw || t2) ? 0.5 * s1 : 0, g2 = t2 && lw ? 0.35 * s2 : 0;
+  let total = w1 + g1 + lw + g2 + w2;
+  const f = total > 0.94 * W ? Math.min(1, (0.94 * W - lw) / Math.max(1, total - lw)) : 1;
+  s1 *= f; s2 *= f; w1 *= f; w2 *= f; g1 *= f; g2 *= f;
+  total = w1 + g1 + lw + g2 + w2;
+  let x = lw && lx > 0 ? (W * lx) / 100 - lw / 2 - g1 - w1 : (W - total) / 2;
+  const cap = getFont(fontId).cap || 0.7;
+  const texts = [];
+  let logo = null;
+  if (t1) texts.push({ t: t1, em: s1 * 1.015, x, base: cy + (cap * s1 * 1.015) / 2 });
+  x += w1 + g1;
+  if (lw) { logo = { x, y: cy - lh / 2, w: lw, h: lh }; x += lw + g2; }
+  if (t2) texts.push({ t: t2, em: s2 * 1.015, x, base: cy + (cap * s2 * 1.015) / 2 });
+  const H2 = even(bh);
+  return {
+    bottom: by + bh,
+    draw: (ctx) => {
+      ctx.save();
+      ctx.fillStyle = rgba(o.banner_bg || '#000000', num(o.banner_op, 60) / 100); ctx.fillRect(0, by, W, H2);
+      if (o.banner_line !== false) { ctx.fillStyle = 'rgba(255,255,255,.75)'; ctx.fillRect(0, by + H2 - 3, W, 3); }
+      if (logo && logoImg) ctx.drawImage(logoImg, logo.x, logo.y, logo.w, logo.h);
+      ctx.restore();
+    },
+    drawText: (ctx) => {
+      ctx.save();
+      ctx.fillStyle = o.banner_txt || '#ffffff'; ctx.textBaseline = 'alphabetic'; ctx.textAlign = 'left';
+      for (const t of texts) { ctx.font = cssFont(fontId, t.em); ctx.fillText(t.t, t.x, t.base); }
+      ctx.restore();
+    },
+  };
+}
+
+// ------------------------------------------------------------------ progress bar
+function drawPbar(ctx, t, o, W, H, dur) {
+  if (!o.pbar_on || dur <= 0) return;
+  const h = Math.max(4, num(o.pbar_h, 10)) * (H > W ? W / 1080 : H / 1080);
+  const y = o.pbar_pos === 'atas' ? 0 : H - h;
+  ctx.save();
+  ctx.fillStyle = 'rgba(255,255,255,0.31)'; ctx.fillRect(0, y, W, h);
+  ctx.fillStyle = o.pbar_col || '#ffd400'; ctx.fillRect(0, y, W * Math.max(0, Math.min(1, t / dur)), h);
+  ctx.restore();
+}
+
 // ------------------------------------------------------------------ overlay lengkap
 /**
- * ov: { o, W, H, g (geom), chunks, dur, hook, hookSpan, credit, flashAt, logo, fonts:{sub,hook,wm}, behind }
+ * ov: { o, W, H, g (geom), chunks, dur, hook, hookSpan, credit, flashAt, logo, fonts:{sub,hook,wm}, behind,
+ *       banner (hasil bannerLayout), channel }
  */
 export function drawOverlay(ctx, t, ov) {
   const { o, W, H, g, dur } = ov;
+  const safe = ov.banner?.bottom || 0;
   const up = o.uppercase !== false ? (s) => s.toLocaleUpperCase('id') : (s) => s;
-  drawLogo(ctx, ov.logo, o, W, H);
+  ov.banner?.draw(ctx);
+  drawLogo(ctx, ov.logo, o, W, H, safe);
 
-  // subtitle (layer 0)
+  // subtitle
   if (ov.chunks?.length) drawSubs(ctx, t, ov, up);
 
-  // sumber (layer 1)
+  // sumber + teks banner
   if (ov.credit) {
     const size = H > W ? Math.round((34 * W) / 1080) : 30;
     drawTextEvent(ctx, [{ t: clean(ov.credit), color: '#FFFFFF', ow: 3, oc: '#000' }],
       { fontId: ov.fonts.sub, px: size * EM, x: W / 2, y: g.credit_y, an: 5, alpha: 0.75, maxW: W - 80 });
   }
+  ov.banner?.drawText?.(ctx);
 
-  // judul hook (layer 2)
+  // judul hook
   if (ov.hook) {
     let h0 = 0, h1 = dur;
     if (ov.hookSpan) [h0, h1] = ov.hookSpan;
-    else { const hs = num(o.hook_secs, 0); h1 = hs <= 0 ? dur : Math.min(dur, hs); }
-    if (t >= h0 && t < h1) drawHook(ctx, up(clean(ov.hook)), o, W, H, g, ov.fonts.hook, fadeAlpha(t, h0, h1, 0.12, 0.2));
+    else { const hs = num(o.hook_secs, 0); if (hs > 0) h1 = Math.min(dur, hs); }
+    if (t >= h0 && t < h1) {
+      ov._hook ??= (() => {
+        const cfg = hookCfg(o, W, H, { label: o.hook_label || ov.channel || '', safe });
+        return { cfg, el: hookPrepare(ov.hook, cfg, ov.fonts.hook, g.hook_y) };
+      })();
+      paintHook(ctx, ov._hook.el, ov._hook.cfg, ov.fonts.hook, t, h0, h1, ov.hookAlpha ?? 1);
+    }
   }
 
-  // watermark (layer 3)
-  if (!ov.behind) drawWatermark(ctx, t, o, W, H, ov.fonts.wm, dur, true);
+  // watermark
+  if (!ov.behind) drawWatermark(ctx, t, o, W, H, ov.fonts.wm, dur, true, safe);
 
-  // kilat putih (layer 6)
+  // teks penutup
+  const cta = String(o.cta_text || '').trim();
+  if (cta) {
+    const secs = Math.max(1, num(o.cta_secs, 3));
+    const c0 = Math.max(0, dur - secs);
+    if (t >= c0 && t < dur) {
+      ov._cta ??= (() => {
+        const tpl = { kutipan: 'kotak', kotak: 'kotak', strip: 'strip' }[o.hook_tpl] || 'polos';
+        const cfg = hookCfg(o, W, H, { tpl, size: num(o.hook_size, 58) * 0.82, align: 'tengah', pos: 'bebas', x: 0, y: num(o.cta_y, 45), anim: 'halus' });
+        return { cfg, el: hookPrepare(cta, cfg, ov.fonts.hook, H * 0.45) };
+      })();
+      paintHook(ctx, ov._cta.el, ov._cta.cfg, ov.fonts.hook, t, c0, dur);
+    }
+  }
+
+  // kilat putih
   if (ov.flashAt != null && t >= ov.flashAt && t < ov.flashAt + 0.35) {
     ctx.save();
     ctx.globalAlpha = fadeAlpha(t, ov.flashAt, ov.flashAt + 0.35, 0, 0.3);
     ctx.fillStyle = '#FFFFFF'; ctx.fillRect(0, 0, W, H);
     ctx.restore();
   }
-}
 
-function drawHook(ctx, text, o, W, H, g, fontId, alpha) {
-  const size = num(o.hook_size, 58);
-  const px = size * EM;
-  const hm = Math.round(W * 0.09);
-  const box = o.hook_box || 'putih';
-  const base = { fontId, px, x: W / 2, y: g.hook_y, an: 5, maxW: W - hm * 2, alpha };
-  const tokens = text.split(' ').filter(Boolean);
-  if (box === 'polos') {
-    const hc = TEXTCOL[o.hook_color] || '#FFFFFF';
-    const hol = Math.max(0, Math.round((size * num(o.hook_outline, 10)) / 100));
-    drawTextEvent(ctx, tokens.map((t) => ({ t, color: hc, ow: hol, oc: '#000' })),
-      { ...base, shadow: Math.max(0, Math.floor(hol / 2)) });
-  } else {
-    const dark = box === 'hitam';
-    drawTextEvent(ctx, tokens.map((t) => ({ t, color: dark ? '#FFFFFF' : '#000000', ow: 0 })),
-      { ...base, box: { color: dark ? '#000000' : '#FFFFFF', pad: Math.round(size * 0.3) } });
-  }
+  drawPbar(ctx, t, o, W, H, dur);
 }
 
 function drawSubs(ctx, t, ov, up) {

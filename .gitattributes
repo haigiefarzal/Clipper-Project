@@ -17,3 +17,5 @@ docs/          export-ignore
 *.png    binary
 *.jpg    binary
 *.mp4    binary
+*.mp3    binary
+*.wav    binary

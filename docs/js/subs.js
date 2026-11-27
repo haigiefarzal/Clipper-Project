@@ -259,3 +259,53 @@ export async function aiCorrect(lines, provider, key, model, context, wav) {
   } else return lines;
   return parseList(text, n);
 }
+
+// ------------------------------------------------------------------ judul hook dari AI
+/** 3 judul hook + caption + hashtag + detik momen puncak dari transkrip (Gemini juga mendengarkan audio). */
+export async function aiHook(provider, key, model, chunks, context, wav) {
+  const lines = chunks.slice(0, 220).map((c) => `[${c.start.toFixed(1)}s] ${c.text}`);
+  const dur = chunks.length ? chunks[chunks.length - 1].end : 0;
+  const prompt = 'Kamu editor clip TikTok Indonesia yang jago bikin judul hook.\n'
+    + `Channel: ${context.channel || '-'}\nJudul video asli: ${context.title || '-'}\n`
+    + `Durasi clip: ${dur.toFixed(0)} detik. Transkrip clip (detik dari awal clip):\n${lines.join('\n')}\n\n`
+    + (wav ? 'Dengarkan juga AUDIO terlampir untuk menangkap reaksi (teriak, ketawa, kaget).\n' : '')
+    + 'Tugas:\n'
+    + '1. Buat 3 judul hook berbeda, masing-masing 4-10 kata, bahasa Indonesia santai, bikin penasaran, '
+    + 'sesuai isi clip (jangan bohong/clickbait palsu), tanpa emoji, tanpa tanda pagar. Sebut nama streamer '
+    + 'kalau relevan. Tandai 1-2 kata paling penting dengan bintang, contoh: MOMEN *WINDAH* KAGET.\n'
+    + '2. Caption TikTok 1-2 kalimat (boleh 1 emoji).\n'
+    + '3. 4-6 hashtag relevan (tanpa spasi).\n'
+    + '4. Detik momen puncak (paling heboh/lucu) di dalam clip, untuk intro.\n'
+    + 'Jawab HANYA JSON: {"hooks":["..","..",".."],"caption":"..","hashtags":["#..",".."],"puncak":12.5}';
+  let text;
+  if (provider === 'gemini') {
+    const parts = [];
+    if (wav) parts.push({ inline_data: { mime_type: 'audio/wav', data: await blobToBase64(wav) } });
+    parts.push({ text: prompt });
+    const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model || 'gemini-flash-latest')}:generateContent`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key },
+      body: JSON.stringify({ contents: [{ parts }], generationConfig: { temperature: 0.8, responseMimeType: 'application/json' } }),
+    });
+    if (!r.ok) throw new Error(`Judul AI gagal (HTTP ${r.status}): ${(await r.text()).slice(0, 300)}`);
+    const j = await r.json();
+    text = j?.candidates?.[0]?.content?.parts?.map((p) => p.text || '').join('');
+  } else if (provider === 'claude') {
+    const r = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true' },
+      body: JSON.stringify({ model: model || 'claude-haiku-5-5', max_tokens: 1200, messages: [{ role: 'user', content: prompt }] }),
+    });
+    if (!r.ok) throw new Error(`Judul AI gagal (HTTP ${r.status}): ${(await r.text()).slice(0, 300)}`);
+    const j = await r.json();
+    text = (j.content || []).map((b) => b.text || '').join('');
+  } else return null;
+  let data = {};
+  try { const m = String(text || '').match(/\{[\s\S]*\}/); data = m ? JSON.parse(m[0]) : {}; } catch { data = {}; }
+  const hooks = (data.hooks || []).map((h) => String(h).replace(/\s+/g, ' ').trim()).filter(Boolean).slice(0, 3);
+  if (!hooks.length) throw new Error('Judul AI: jawaban tidak berisi judul.');
+  const tags = (data.hashtags || []).map((t) => ('#' + String(t).replace(/^#+/, '')).replace(/\s+/g, '')).filter((t) => t.length > 1).slice(0, 8);
+  let peak = Number(data.puncak);
+  if (!(peak >= 0 && peak <= dur + 1)) peak = null;
+  return { hooks, caption: String(data.caption || '').trim(), hashtags: tags, puncak: peak };
+}

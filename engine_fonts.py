@@ -55,6 +55,16 @@ def _read(path):
     if win <= 0.3:
         hh = f["hhea"]
         win = (hh.ascent - hh.descent) / upm
+    asc_u, desc_u = os2.usWinAscent, os2.usWinDescent
+    if asc_u + desc_u <= 0.3 * upm:
+        asc_u, desc_u = f["hhea"].ascent, -f["hhea"].descent
+    cap = getattr(os2, "sCapHeight", 0) or 0
+    if cap <= 0:
+        try:
+            gl = f["glyf"][cmap[ord("H")]]
+            cap = gl.yMax
+        except Exception:
+            cap = 0.7 * upm
     try:  # lebar rata-rata huruf KAPITAL (untuk menghitung muat berapa huruf per baris)
         hmtx, glyf_map = f["hmtx"], f.getBestCmap()
         widths = [hmtx[glyf_map[ord(c)]][0] for c in "ABCDEFGHIJKLMNOPRSTUWY" if ord(c) in glyf_map]
@@ -62,7 +72,8 @@ def _read(path):
     except Exception:
         aw = 0.65
     return {"full": full, "family": fam, "weight": int(os2.usWeightClass), "k": round(win * 1.015, 4),
-            "aw": round(aw, 4)}
+            "aw": round(aw, 4), "asc": round(asc_u / upm, 4), "desc": round(desc_u / upm, 4),
+            "cap": round(cap / upm, 4)}
 
 
 def scan(force=False):
@@ -90,14 +101,14 @@ def scan(force=False):
             except OSError:
                 continue
             c = cache.get(key)
-            if c and c.get("mt") == mt and c.get("v") == 2:
+            if c and c.get("mt") == mt and c.get("v") == 3:
                 info = c.get("info")
             else:
                 try:
                     info = _read(p)
                 except Exception:
                     info = None
-            newcache[key] = {"mt": mt, "info": info, "v": 2}
+            newcache[key] = {"mt": mt, "info": info, "v": 3}
             if not info:
                 continue
             if info["full"].lower() in seen_full:
@@ -131,7 +142,42 @@ def get(fid):
 def public_list():
     order = {"Bawaan KlipKu": 0, "Font tambahan kamu": 1, "Font di komputer": 2}
     items = sorted(registry().values(), key=lambda f: (order.get(f["group"], 3), f["full"].lower()))
-    return [{"id": f["id"], "name": f["full"], "group": f["group"]} for f in items]
+    return [{"id": f["id"], "name": f["full"], "group": f["group"], "asc": f.get("asc", 0.95),
+             "desc": f.get("desc", 0.25), "cap": f.get("cap", 0.7)} for f in items]
+
+
+def find(name):
+    """Cari id font dari nama lengkap (contoh 'Montserrat ExtraBold')."""
+    for f in registry().values():
+        if f["full"].lower() == name.lower():
+            return f["id"]
+    return None
+
+
+_metrics = {}
+
+
+def text_width(fid, text, em):
+    """Lebar teks (px) untuk ukuran em tertentu, dari tabel lebar huruf font (tanpa kerning)."""
+    f = get(fid)
+    m = _metrics.get(f["id"])
+    if m is None:
+        try:
+            from fontTools.ttLib import TTFont
+            t = TTFont(f["path"], lazy=True, fontNumber=0)
+            m = (t.getBestCmap() or {}, t["hmtx"].metrics, t["head"].unitsPerEm or 1000)
+        except Exception:
+            m = ({}, {}, 1000)
+        _metrics[f["id"]] = m
+    cmap, hm, upm = m
+    total = 0
+    for ch in text:
+        g = cmap.get(ord(ch))
+        if g and g in hm:
+            total += hm[g][0]
+        else:
+            total += 0.55 * upm
+    return total / upm * em
 
 
 def stage(fids, dest):

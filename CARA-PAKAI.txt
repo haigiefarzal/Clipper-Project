@@ -1,6 +1,53 @@
 ===================================================================
-  KLIPKU 2.1 — Link YouTube + menit  ->  clip siap upload
+  KLIPKU 2.3 — Link YouTube / Twitch + menit  ->  clip siap upload
 ===================================================================
+
+YANG BARU DI VERSI 2.3: TWITCH
+- Tempel link Twitch di kolom link, sama seperti YouTube:
+    * VOD (siaran yang sudah selesai):  https://www.twitch.tv/videos/123456789
+      (dari aplikasi Twitch di HP: Bagikan -> Salin link, juga bisa)
+    * Clip Twitch:  https://clips.twitch.tv/NamaClip...
+                    atau https://www.twitch.tv/namastreamer/clip/NamaClip...
+- Clip Twitch: menit Mulai/Selesai otomatis terisi seluruh clip.
+- Link yang ada ?t=1h23m45s: menit Mulai otomatis terisi.
+- Tulisan sumber otomatis "Sumber: twitch.tv/namastreamer", dan link di
+  caption langsung lompat ke menit clip di VOD.
+- Yang TIDAK bisa: link channel / siaran yang masih LIVE (tunggu selesai,
+  lalu ambil link dari tab Videos), dan VOD khusus subscriber.
+- PENTING: VOD Twitch cepat hilang (streamer biasa 7 hari, affiliate
+  14 hari, partner 60 hari). Clip & highlight tetap ada. Jadi clip
+  secepatnya setelah stream selesai.
+
+YANG BARU DI VERSI 2.2
+- JUDUL HOOK (langkah 5) punya 5 template:
+    * Kutipan: kotak tanda kutip + kotak putih per baris (seperti contoh
+      "MOMEN BANG WINDAH MENEMUKAN MISTERI...")
+    * Kotak per baris, Label + judul, Strip berita, Teks polos.
+  Posisi: Otomatis / Atas / Tengah / Bawah / Bebas. Paling gampang:
+  TARIK judulnya langsung di preview kanan. Rata kiri/tengah/kanan,
+  ukuran, lebar, warna kotak/teks/aksen, sudut membulat, animasi.
+  Tulis *kata* untuk menyorot kata, dan | untuk ganti baris paksa.
+- JUDUL DARI AI (opsional): Gemini/Claude membaca isi clip lalu kasih
+  3 pilihan judul, caption + hashtag, dan momen puncak untuk intro.
+  Dipilih di layar "Cek subtitle & judul".
+- BANNER program/sponsor di atas video (teks + logo, atau gambar PNG
+  jadi). Watermark, logo, dan hook otomatis turun di bawah banner.
+- SOUND EFFECT (langkah 7): semua file di folder "sfx" (contoh: Fahhh,
+  Oh My God, Rizz, Kucing Ketawa, Credit Akhir). Pasang di: awal,
+  akhir, saat video diulang, menit tertentu, saat kata tertentu
+  diucapkan, atau tiap zoom kejut. Volume otomatis disamakan, suara
+  asli otomatis mengecil saat SFX bunyi.
+  SFX sendiri: tombol Upload, atau taruh file di folder "sfx".
+  Folder sfx & musik tidak ikut ke GitHub (biasanya berhak cipta).
+- MUSIK LATAR (folder "musik") yang otomatis mengecil saat ada suara.
+- EFEK TAMBAHAN (langkah 8): zoom kejut di momen heboh, potong jeda
+  (jump cut), progress bar, teks penutup ("PART 2 CEK DI BIO"),
+  volume disamakan ke -14 LUFS (standar umum YouTube/Spotify; TikTok
+  tidak mengumumkan angka resmi), dan gambar cover JPG.
+- GAYA TERSIMPAN: simpan semua pengaturan dengan nama (misal "Windah"),
+  tinggal pilih lagi kapan saja.
+- PERBAIKAN: intro yang diambil dari menit jauh di dalam clip dulu bisa
+  menghabiskan RAM sampai laptop macet. Sekarang hemat RAM.
 
 YANG BARU DI VERSI 2.1
 - Judul hook bisa: bingkai putih, bingkai hitam, atau polos (teks saja,
@@ -36,8 +83,8 @@ A. UPDATE DARI VERSI 1 (kalau KlipKu sudah terpasang)
    Folder .venv, work, dan hasil kamu tetap aman.
 4. Klik dua kali 2-BUKA-KlipKu-Windows.bat.
    Pertama kali, KlipKu memasang komponen baru (OpenCV, fonttools) ±1-3 menit.
-5. Di jendela hitam harus muncul: "KlipKu versi 2.1 jalan di ...".
-   Pojok kanan atas halaman juga menulis "versi 2.1".
+5. Di jendela hitam harus muncul: "KlipKu versi 2.3 jalan di ...".
+   Pojok kanan atas halaman juga menulis "versi 2.3".
 
 INSTAL BARU (belum pernah pasang)
 1. Ekstrak ZIP, buka folder klipku, klik dua kali 1-INSTALL-Windows.bat

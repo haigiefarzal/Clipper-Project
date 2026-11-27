@@ -12,6 +12,12 @@ hasil/
 fonts/tambahan/*
 !fonts/tambahan/TARUH-FONT-DI-SINI.txt
 
+# Sound effect & musik milik pengguna — TIDAK ikut ke GitHub (meme/lagu biasanya berhak cipta)
+sfx/*
+!sfx/TARUH-SFX-DI-SINI.txt
+musik/*
+!musik/TARUH-MUSIK-DI-SINI.txt
+
 # File sistem
 .DS_Store
 Thumbs.db

@@ -1,4 +1,4 @@
-// AI Kamera — port langsung dari engine_camera.py (KlipKu PC).
+// AI Kamera: port langsung dari engine_camera.py (KlipKu PC).
 // 1) Deteksi wajah YuNet (model ONNX yang sama) 8x per detik.  2) Lacak wajah jadi "track".
 // 3) Nilai aktivitas: gerak mulut + gerak kepala, diperkuat saat ada ucapan.
 // 4) "Sutradara": tetap di karakter utama, pindah ke yang bereaksi, group shot kalau muat.

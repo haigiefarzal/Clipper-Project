@@ -1,14 +1,26 @@
-// Versi engine dikunci (pinned) supaya hasil selalu sama dan tidak rusak karena update.
+// Versi engine dikunci supaya hasil selalu sama dan tidak rusak karena update.
+// "mediabunny" dipetakan lewat import map di index.html (dipakai juga oleh encoder AAC).
 export const MEDIABUNNY_URL = 'https://cdn.jsdelivr.net/npm/mediabunny@1.66.5/dist/bundles/mediabunny.min.mjs';
+export const AAC_URL = 'https://cdn.jsdelivr.net/npm/@mediabunny/aac-encoder@1.66.5/dist/bundles/mediabunny-aac-encoder.min.mjs';
 export const TRANSFORMERS_URL = 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@4.3.2/dist/transformers.min.js';
 export const ORT_URL = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.31.1/dist/ort.wasm.min.mjs';
 export const ORT_WASM_DIR = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.31.1/dist/';
 
 let mbPromise = null;
 export function loadMediabunny() {
-  mbPromise ??= import(MEDIABUNNY_URL).catch((e) => {
+  mbPromise ??= (async () => {
+    const mb = await import('mediabunny');
+    // Browser tanpa encoder AAC bawaan (Firefox, Safari lama): pakai encoder AAC versi WebAssembly.
+    try {
+      if (!(await mb.canEncodeAudio('aac'))) {
+        const aac = await import(AAC_URL);
+        aac.registerAacEncoder();
+      }
+    } catch { /* tetap jalan, nanti pakai Opus atau tanpa suara */ }
+    return mb;
+  })().catch((e) => {
     mbPromise = null;
-    throw new Error('Gagal memuat mesin video (Mediabunny). Cek koneksi internet lalu coba lagi. ' + e.message);
+    throw new Error('Mesin video gagal dimuat. Cek koneksi internet lalu coba lagi. (' + e.message + ')');
   });
   return mbPromise;
 }
@@ -22,7 +34,7 @@ export function loadOrt() {
     return ort;
   }).catch((e) => {
     ortPromise = null;
-    throw new Error('Gagal memuat mesin AI kamera (ONNX Runtime). Cek koneksi internet. ' + e.message);
+    throw new Error('Mesin AI kamera gagal dimuat. Cek koneksi internet. (' + e.message + ')');
   });
   return ortPromise;
 }

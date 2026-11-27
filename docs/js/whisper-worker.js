@@ -1,4 +1,4 @@
-// Whisper di browser (Transformers.js) — berjalan di Web Worker supaya halaman tetap lancar.
+// Whisper di browser (Transformers.js), berjalan di Web Worker supaya halaman tetap lancar.
 import { TRANSFORMERS_URL } from './libs.js';
 
 let lib = null;

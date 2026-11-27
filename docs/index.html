@@ -2,277 +2,406 @@
 <html lang="id">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>KlipKu Web — bikin clip siap upload langsung di browser</title>
-<meta name="description" content="KlipKu Web: upload video, pilih menit, keluar clip 9:16 / 16:9 / 1:1 lengkap dengan subtitle otomatis (Whisper), AI kamera, judul hook, dan watermark. Semua diproses di browser kamu.">
-<meta property="og:title" content="KlipKu Web — Clipper Project">
-<meta property="og:description" content="Bikin clip siap upload langsung di browser: subtitle otomatis, AI kamera, hook & watermark. Gratis, tanpa install.">
-<meta name="theme-color" content="#0f1115">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23ffd400'/%3E%3Cpath d='M24 18v28l22-14z' fill='%230f1115'/%3E%3C/svg%3E">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>KlipKu: bikin clip siap upload di browser</title>
+<meta name="description" content="Upload video, pilih menit, dan KlipKu membuat clip 9:16, 16:9, atau 1:1 lengkap dengan subtitle otomatis, judul hook, sound effect, dan watermark. Gratis, langsung di browser.">
+<meta property="og:title" content="KlipKu">
+<meta property="og:description" content="Bikin clip siap upload langsung di browser. Subtitle otomatis, judul hook, sound effect, watermark. Gratis.">
+<meta name="theme-color" content="#f2f2f7" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="KlipKu">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='15' fill='%23ffcc00'/%3E%3Cpath d='M25 19v26l20-13z' fill='%23111'/%3E%3C/svg%3E">
 <link rel="stylesheet" href="css/app.css">
+<script type="importmap">{"imports":{"mediabunny":"https://cdn.jsdelivr.net/npm/mediabunny@1.66.5/dist/bundles/mediabunny.min.mjs"}}</script>
 </head>
 <body>
-<header>
-  <h1>Klip<span>Ku</span> Web</h1>
-  <small>upload video + menit → clip siap upload</small>
-  <nav>
-    <a href="https://github.com/haigiefarzal/Clipper-Project#readme" target="_blank" rel="noopener">Panduan</a>
-    <a href="https://github.com/haigiefarzal/Clipper-Project/releases/latest" target="_blank" rel="noopener" title="Versi PC bisa langsung pakai link YouTube">Versi PC</a>
-    <span class="ver" id="ver">web</span>
-  </nav>
+<header class="bar">
+  <div class="bar-in">
+    <div class="brand"><span class="mark" aria-hidden="true"></span><b>KlipKu</b></div>
+    <nav>
+      <a href="https://github.com/haigiefarzal/Clipper-Project#readme" target="_blank" rel="noopener">Panduan</a>
+      <a href="https://github.com/haigiefarzal/Clipper-Project/releases/latest" target="_blank" rel="noopener">Versi PC</a>
+    </nav>
+  </div>
 </header>
 
-<main>
-<section>
-  <div class="banner" id="banner"></div>
-
-  <div class="card">
-    <h2><span class="num">1</span>Video</h2>
-    <label class="drop" id="drop">
-      <input type="file" id="file" accept="video/*,.mkv,.mov,.webm,.mp4">
-      <b>Klik atau tarik file video ke sini</b>
-      <span>MP4, MOV, WebM, MKV · video tetap di komputer kamu, tidak di-upload ke server</span>
-    </label>
-    <div class="info" id="vinfo"></div>
-    <video id="player" controls playsinline preload="metadata"></video>
-    <div class="hint">Mau pakai link YouTube langsung? Pakai <a href="https://github.com/haigiefarzal/Clipper-Project/releases/latest" target="_blank" rel="noopener">KlipKu versi PC</a>. Di versi web, unggah video yang kamu punya atau yang sudah diizinkan pemiliknya.</div>
+<main class="page">
+<div class="left">
+  <div class="intro">
+    <h1>Bikin clip</h1>
+    <p>Pilih video, tandai bagian yang mau dipotong, lalu tekan <b>Buat clip</b>. Semua diproses di perangkat kamu.</p>
   </div>
+  <div class="alert" id="banner" hidden></div>
 
-  <div class="card">
-    <h2><span class="num">2</span>Menit yang mau di-clip</h2>
-    <div class="clip head"><span></span><span>Mulai</span><span>Selesai</span><span>Judul hook (opsional)</span><span class="ci">⏪ Intro dari (opsional)</span><span></span></div>
+  <section class="group demo" id="demo">
+    <h2>Contoh hasil</h2>
+    <div class="list demo-card">
+      <div class="demo-vid">
+        <video id="demoVid" src="contoh/contoh-windah.mp4" poster="contoh/contoh-windah.jpg" muted loop playsinline preload="none" aria-label="Contoh clip hasil KlipKu"></video>
+        <button class="demo-sound" id="demoSound" type="button">Nyalakan suara</button>
+      </div>
+      <div class="demo-txt">
+        <b>Sok jadi pawang harimau di GTA 6</b>
+        <p>Dibuat dengan KlipKu: facecam di atas, gameplay di bawah, judul gaya Kutipan, subtitle per kata, dan watermark.</p>
+        <p class="muted small">Sumber: Windah Basudara (YouTube). Clip oleh GIECLIPS.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 1. VIDEO -->
+  <section class="group">
+    <h2>Video</h2>
+    <div class="list">
+      <label class="pick" id="drop">
+        <input type="file" id="file" accept="video/*,.mkv,.mov,.webm,.mp4">
+        <span class="pick-ic" aria-hidden="true"></span>
+        <b>Pilih video</b>
+        <span>atau tarik file ke sini</span>
+      </label>
+      <div id="vbox" hidden>
+        <video id="player" controls playsinline preload="metadata"></video>
+        <div class="cell"><span class="t" id="vname"></span><button class="link" id="btnChange" type="button">Ganti</button></div>
+        <div class="cell sub"><span class="t muted" id="vmeta"></span></div>
+      </div>
+    </div>
+    <p class="foot">Video tidak dikirim ke mana pun. Mau pakai link YouTube atau Twitch? Pakai <a href="https://github.com/haigiefarzal/Clipper-Project/releases/latest" target="_blank" rel="noopener">KlipKu versi PC</a>.</p>
+  </section>
+
+  <!-- 2. POTONGAN -->
+  <section class="group">
     <div id="clips"></div>
-    <div class="row" style="margin-top:4px">
-      <button class="fix" id="btnAdd">+ Tambah clip</button>
-      <span class="hint" style="margin:0">Tip: putar video di atas, lalu klik <b>⏱</b> untuk mengisi waktu dari posisi video.</span>
-    </div>
-    <div class="hint">Format waktu: <b>1:23:45</b>, <b>23:45</b>, atau <b>45</b> (detik). Maksimal 3 menit per clip.</div>
-  </div>
+    <div class="list"><button class="cell action" id="btnAdd" type="button">Tambah potongan</button></div>
+    <p class="foot">Waktu bisa ditulis 1:23:45, 23:45, atau 45. Maksimal 3 menit per potongan. Di judul, tulis <b>*kata*</b> untuk memberi warna dan <b>|</b> untuk pindah baris.</p>
+  </section>
 
-  <div class="card">
-    <h2><span class="num">3</span>Format &amp; kamera</h2>
-    <label>Rasio video</label>
-    <div class="seg" id="segAspect">
-      <button data-v="9:16" class="on">9:16 (TikTok/Shorts/Reels)</button>
-      <button data-v="16:9">16:9 (YouTube landscape)</button>
-      <button data-v="1:1">1:1 (kotak)</button>
-    </div>
-    <label>Mode kamera</label>
-    <div class="seg" id="segLayout">
-      <button data-v="static" class="on">🎯 Tengah / zoom manual</button>
-      <button data-v="ai">🤖 AI Kamera (otomatis)</button>
-      <button data-v="facecam">🎮 Facecam + Gameplay</button>
-    </div>
-    <div class="row" style="margin-top:12px">
-      <button class="fix" id="btnFrame" disabled>📸 Ambil gambar dari menit mulai clip 1</button>
-      <span class="hint" id="frameHint" style="margin:0">Untuk preview yang akurat.</span>
-    </div>
-    <div id="frameBox"><canvas id="frame"></canvas><div id="boxes"></div></div>
+  <!-- 3. TAMPILAN -->
+  <section class="group">
+    <h2>Tampilan</h2>
+    <div class="list">
+      <div class="cell col"><span class="t">Ukuran video</span>
+        <div class="seg" data-k="aspect"><button data-v="9:16" class="on">9:16</button><button data-v="16:9">16:9</button><button data-v="1:1">1:1</button></div></div>
+      <div class="cell col"><span class="t">Kamera</span>
+        <div class="seg" data-k="layout"><button data-v="static" class="on">Tengah</button><button data-v="ai">AI ikuti wajah</button><button data-v="facecam">Facecam + game</button></div></div>
+      <button class="cell action" id="btnFrame" type="button" disabled>Ambil gambar dari potongan 1</button>
+      <div id="frameBox" hidden><canvas id="frame"></canvas><div id="boxes"></div></div>
+      <div class="cell sub" id="frameHint" hidden><span class="t muted"></span></div>
 
-    <div class="only" data-show="static">
-      <div class="grid2">
-        <div><label>Zoom <b id="vZoom"></b></label><input type="range" id="zoom" min="0.5" max="3" step="0.05" value="1"></div>
-        <div><label>Latar kosong</label><select id="bg"><option value="blur">Blur (dari video)</option><option value="hitam">Hitam</option></select></div>
-        <div><label>Geser kiri ↔ kanan</label><input type="range" id="pan_x" min="0" max="1" step="0.01" value="0.5"></div>
-        <div><label>Geser atas ↕ bawah</label><input type="range" id="pan_y" min="0" max="1" step="0.01" value="0.5"></div>
+      <div data-show="layout=static">
+        <div class="cell col"><div class="lr"><span class="t">Zoom</span><output data-for="zoom" data-fmt="x"></output></div><input type="range" data-k="zoom" min="0.5" max="3" step="0.05" value="1"></div>
+        <div class="cell col"><div class="lr"><span class="t">Geser kiri kanan</span><output data-for="pan_x" data-fmt="pct1"></output></div><input type="range" data-k="pan_x" min="0" max="1" step="0.01" value="0.5"></div>
+        <div class="cell col"><div class="lr"><span class="t">Geser atas bawah</span><output data-for="pan_y" data-fmt="pct1"></output></div><input type="range" data-k="pan_y" min="0" max="1" step="0.01" value="0.5"></div>
+        <div class="cell col"><span class="t">Latar kosong</span><div class="seg" data-k="bg"><button data-v="blur" class="on">Blur</button><button data-v="hitam">Hitam</button></div></div>
+      </div>
+      <div data-show="layout=ai">
+        <div class="cell col"><div class="lr"><span class="t">Zoom</span><output data-for="ai_zoom" data-fmt="x"></output></div><input type="range" data-k="ai_zoom" min="1" max="2.5" step="0.05" value="1"></div>
+        <div class="cell col"><span class="t">Gerak kamera</span><div class="seg" data-k="ai_style"><button data-v="halus" class="on">Halus</button><button data-v="dinamis">Cepat</button></div></div>
+        <div class="cell col"><span class="t">Saat pindah orang</span><div class="seg" data-k="ai_transition"><button data-v="geser" class="on">Geser</button><button data-v="potong">Potong</button></div></div>
+      </div>
+      <div data-show="layout=facecam">
+        <div class="cell col"><div class="lr"><span class="t">Tinggi facecam</span><output data-for="cam_pct" data-fmt="%"></output></div><input type="range" data-k="cam_pct" min="25" max="60" value="42"></div>
+        <div class="cell col"><span class="t">Gameplay</span><div class="seg" data-k="game_mode"><button data-v="isi" class="on">Penuh</button><button data-v="utuh">Utuh + blur</button></div></div>
+        <div data-show="game_mode=isi">
+          <div class="cell col"><div class="lr"><span class="t">Zoom gameplay</span><output data-for="game_zoom" data-fmt="x"></output></div><input type="range" data-k="game_zoom" min="1" max="2.5" step="0.05" value="1"></div>
+          <div class="cell col"><div class="lr"><span class="t">Geser kiri kanan</span><output data-for="game_x" data-fmt="pct1"></output></div><input type="range" data-k="game_x" min="0" max="1" step="0.01" value="0.5"></div>
+          <div class="cell col"><div class="lr"><span class="t">Geser atas bawah</span><output data-for="game_y" data-fmt="pct1"></output></div><input type="range" data-k="game_y" min="0" max="1" step="0.01" value="0.5"></div>
+        </div>
+        <label class="cell"><span class="t">Garis pemisah</span><span class="sw"><input type="checkbox" data-k="divider" checked><i></i></span></label>
+      </div>
+      <label class="cell"><span class="t">FPS</span><select data-k="fps"><option value="30">30</option><option value="60">60</option><option value="src">Sama dengan video</option></select></label>
+    </div>
+    <p class="foot" id="encInfo">Mengecek mesin render...</p>
+  </section>
+
+  <!-- 4. SUBTITLE -->
+  <section class="group">
+    <h2>Subtitle</h2>
+    <div class="list">
+      <label class="cell"><span class="t">Subtitle otomatis</span><span class="sw"><input type="checkbox" data-k="subs" checked><i></i></span></label>
+      <div data-show="subs">
+        <div class="cell col"><span class="t">Gaya</span>
+          <div class="seg" data-k="sub_style"><button data-v="highlight" class="on">Menyala</button><button data-v="muncul">Per kata</button><button data-v="kotak">Bingkai</button><button data-v="simple">Simpel</button></div></div>
+        <label class="cell"><span class="t">Font</span><select data-k="font" id="font"></select></label>
+        <label class="cell"><span class="t">Warna teks</span><select data-k="sub_text"><option value="putih">Putih</option><option value="kuning">Kuning</option><option value="hitam">Hitam</option></select></label>
+        <label class="cell"><span class="t">Warna kata aktif</span><select data-k="sub_color"><option value="kuning">Kuning</option><option value="hijau">Hijau</option><option value="merah">Merah</option><option value="biru">Biru</option><option value="pink">Pink</option><option value="oranye">Oranye</option><option value="putih">Putih</option></select></label>
+        <div class="cell col"><div class="lr"><span class="t">Ukuran</span><output data-for="sub_size"></output></div><input type="range" data-k="sub_size" min="40" max="140" value="80"></div>
+        <div class="cell col"><div class="lr"><span class="t">Garis tepi</span><output data-for="sub_outline"></output></div><input type="range" data-k="sub_outline" min="0" max="20" value="9"></div>
+        <div class="cell col"><div class="lr"><span class="t">Posisi</span><output data-for="sub_y_pct" data-fmt="auto"></output></div><input type="range" data-k="sub_y_pct" min="0" max="95" value="0"></div>
+        <div class="cell col"><div class="lr"><span class="t">Kata per baris</span><output data-for="per_line"></output></div><input type="range" data-k="per_line" min="1" max="6" value="3"></div>
+        <label class="cell"><span class="t">Huruf besar</span><span class="sw"><input type="checkbox" data-k="uppercase" checked><i></i></span></label>
+        <label class="cell"><span class="t">Cek dan edit sebelum render</span><span class="sw"><input type="checkbox" data-k="review" checked><i></i></span></label>
+        <details class="more">
+          <summary class="cell">Mesin dan akurasi</summary>
+          <label class="cell"><span class="t">Diproses di</span><select data-k="engine"><option value="lokal">Perangkat ini</option><option value="groq">Groq (online, cepat)</option></select></label>
+          <div data-show="engine=lokal">
+            <label class="cell"><span class="t">Model</span><select data-k="model"><option value="base">Cepat (200 MB)</option><option value="small" selected>Seimbang (400 MB)</option><option value="large-v3-turbo">Paling akurat (1 GB, perlu GPU)</option></select></label>
+          </div>
+          <div class="cell sub" data-show="engine=groq"><span class="t muted">Butuh kunci API Groq milikmu sendiri (gratis). Isi di bagian Kunci API di bawah.</span></div>
+          <label class="cell"><span class="t">Bahasa</span><select data-k="lang"><option value="id">Indonesia</option><option value="en">Inggris</option><option value="auto">Deteksi otomatis</option></select></label>
+          <label class="cell col"><span class="t">Kata khusus</span><input type="text" data-k="prompt" placeholder="Prasmul, Windah Basudara, UTBK"></label>
+          <label class="cell col"><span class="t">Ganti kata (satu per baris, salah = benar)</span><textarea data-k="rules" rows="3" placeholder="ff = Free Fire&#10;ml = Mobile Legends"></textarea></label>
+          <label class="cell"><span class="t">Koreksi AI</span><select data-k="ai_fix"><option value="off">Mati</option><option value="gemini">Gemini (ikut dengar audio)</option><option value="claude">Claude</option></select></label>
+          <div data-show="ai_fix=gemini,claude">
+            <label class="cell"><span class="t">Nama model</span><input type="text" data-k="ai_model" placeholder="bawaan"></label>
+          </div>
+        </details>
       </div>
     </div>
+    <p class="foot" id="gpuInfo" data-show="subs">Model subtitle di-download sekali, lalu tersimpan di browser.</p>
+  </section>
 
-    <div class="only" data-show="ai">
-      <div class="note">AI mendeteksi wajah, menebak siapa yang sedang bicara/bereaksi, lalu menggerakkan kamera sendiri: mengikuti goyangan kepala (stabilizer), pindah ke orang yang ketawa/heboh, lalu balik ke karakter utama.</div>
-      <div class="grid3">
-        <div><label>Zoom kamera AI <b id="vAiz"></b></label><input type="range" id="ai_zoom" min="1" max="2.5" step="0.05" value="1"></div>
-        <div><label>Gaya kamera</label><select id="ai_style"><option value="halus">Halus (sinematik)</option><option value="dinamis">Dinamis (cepat, ala TikTok)</option></select></div>
-        <div><label>Saat pindah orang</label><select id="ai_transition"><option value="geser">Geser cepat (whip pan)</option><option value="potong">Potong langsung (cut)</option></select></div>
+  <!-- 5. JUDUL HOOK -->
+  <section class="group">
+    <h2>Judul hook</h2>
+    <div class="list">
+      <div class="cell col"><span class="t">Template</span>
+        <div class="seg wrap" data-k="hook_tpl"><button data-v="kutipan" class="on">Kutipan</button><button data-v="kotak">Kotak</button><button data-v="label">Label</button><button data-v="strip">Strip</button><button data-v="polos">Polos</button></div></div>
+      <div class="cell col"><span class="t">Posisi</span>
+        <div class="seg wrap" data-k="hook_pos"><button data-v="auto" class="on">Otomatis</button><button data-v="atas">Atas</button><button data-v="tengah">Tengah</button><button data-v="bawah">Bawah</button><button data-v="bebas">Bebas</button></div></div>
+      <div data-show="hook_pos=bebas">
+        <div class="cell col"><div class="lr"><span class="t">Atas bawah</span><output data-for="hook_y" data-fmt="%"></output></div><input type="range" data-k="hook_y" min="3" max="97" step="0.5" value="20"></div>
+        <div class="cell col"><div class="lr"><span class="t">Kiri kanan</span><output data-for="hook_x" data-fmt="%"></output></div><input type="range" data-k="hook_x" min="2" max="98" step="0.5" value="8.5"></div>
       </div>
-    </div>
-
-    <div class="only" data-show="facecam">
-      <div class="hint">Klik "Ambil gambar", lalu <b>tarik kotak</b> di facecam streamer. Posisi tersimpan di browser ini.</div>
-      <div class="grid2" style="margin-top:4px">
-        <div><label>Ukuran facecam <b id="vCam"></b></label><input type="range" id="cam_pct" min="25" max="60" value="42"></div>
-        <div><label>Gameplay</label><div class="seg" id="segGame"><button data-v="isi" class="on">Isi penuh (zoom)</button><button data-v="utuh">Utuh + blur</button></div></div>
-        <div class="gz"><label>Zoom gameplay <b id="vGz"></b></label><input type="range" id="game_zoom" min="1" max="2.5" step="0.05" value="1"></div>
-        <div class="gz"><label>Geser gameplay kiri ↔ kanan</label><input type="range" id="game_x" min="0" max="1" step="0.01" value="0.5"></div>
-        <div class="gz"><label>Geser gameplay atas ↕ bawah</label><input type="range" id="game_y" min="0" max="1" step="0.01" value="0.5"></div>
-        <div><label class="check"><input type="checkbox" id="divider" checked> Garis pemisah putih</label></div>
-      </div>
-    </div>
-    <div class="grid3">
-      <div><label>FPS hasil</label><select id="fps"><option value="30">30 fps (lebih cepat render)</option><option value="60">60 fps (lebih mulus)</option><option value="src">Ikuti video asli</option></select></div>
-    </div>
-    <div class="hint" id="encInfo" style="margin-top:8px">mengecek mesin render...</div>
-  </div>
-
-  <div class="card">
-    <h2><span class="num">4</span>Subtitle</h2>
-    <label class="check"><input type="checkbox" id="subs" checked> Pakai subtitle otomatis</label>
-    <div id="subOpts">
-      <label>Gaya</label>
-      <div class="seg" id="segStyle">
-        <button data-v="highlight" class="on">Kata menyala</button>
-        <button data-v="muncul">Muncul per kata</button>
-        <button data-v="kotak">Kata berbingkai</button>
-        <button data-v="simple">Simpel</button>
-      </div>
-      <label>Font <span class="pill" id="fontCount"></span></label>
-      <div class="row"><input type="text" id="fontSearch" placeholder="🔎 cari font... (contoh: mont, anton)"><label class="btn fix" title="tambah font .ttf/.otf milikmu">+ Font<input type="file" id="fontFile" accept=".ttf,.otf,.woff,.woff2" multiple hidden></label></div>
-      <select id="font" size="6" style="margin-top:6px"></select>
-      <div class="grid3">
-        <div><label>Warna teks</label><select id="sub_text"><option value="putih">Putih</option><option value="kuning">Kuning</option><option value="hitam">Hitam</option></select></div>
-        <div><label>Warna kata aktif</label><select id="sub_color"><option value="kuning">Kuning</option><option value="hijau">Hijau</option><option value="merah">Merah</option><option value="biru">Biru</option><option value="pink">Pink</option><option value="oranye">Oranye</option><option value="putih">Putih</option></select></div>
-        <div><label>Posisi <b id="vPos"></b></label><input type="range" id="sub_y_pct" min="0" max="95" value="0"></div>
-        <div><label>Ukuran <b id="vSz"></b></label><input type="range" id="sub_size" min="40" max="140" value="80"></div>
-        <div><label>Tebal garis tepi <b id="vOl"></b></label><input type="range" id="sub_outline" min="0" max="20" value="9"></div>
-        <div><label>Kata per baris <b id="vPl"></b></label><input type="range" id="per_line" min="1" max="6" value="3"></div>
-      </div>
-      <label class="check"><input type="checkbox" id="uppercase" checked> HURUF BESAR</label>
-
-      <h3>Mesin subtitle</h3>
-      <div class="grid2">
-        <div><label>Diproses di</label><select id="engine">
-          <option value="lokal">Browser ini (GPU WebGPU / CPU)</option>
-          <option value="groq">Groq online — super cepat ⚡ (gratis, perlu API key)</option></select></div>
-        <div class="groqkey"><label>API key Groq <span id="groqState" class="pill"></span></label><input type="password" id="groq_key" placeholder="gsk_... (gratis di console.groq.com)" autocomplete="off"></div>
-      </div>
-      <div class="hint groqkey">Groq menjalankan Whisper large-v3 di server mereka: clip 1 menit biasanya selesai dalam beberapa detik. Kalau Groq gagal/limit, otomatis pakai mesin di browser.</div>
-      <div class="grid2">
-        <div class="lokal"><label>Model</label><select id="model">
-          <option value="base">Cepat — base (±200 MB)</option>
-          <option value="small" selected>Seimbang — small (±400 MB) ⭐</option>
-          <option value="large-v3-turbo">Akurat — large-v3-turbo (±0,7–1,4 GB, perlu GPU)</option></select></div>
-        <div><label>Bahasa</label><select id="lang"><option value="id">Indonesia</option><option value="en">English</option><option value="auto">Deteksi otomatis</option></select></div>
-      </div>
-      <div class="hint lokal" id="gpuInfo">Model di-download sekali, lalu tersimpan di browser.</div>
-      <label>Kata khusus (nama, kampus, game, slang) — koreksi bunyi otomatis</label>
-      <input type="text" id="prompt" placeholder="contoh: Prasmul, Bigmo, Windah Basudara, UTBK, wkwk">
-      <div class="hint">Kalau ditulis "Prasmul", hasil salah dengar seperti "plasmool" / "plas mul" otomatis diganti jadi "Prasmul".</div>
-      <label>Kamus ganti (satu per baris: <b>salah = benar</b>)</label>
-      <textarea id="rules" placeholder="ff = Free Fire&#10;ml = Mobile Legends"></textarea>
-      <div class="grid2">
-        <div><label>Koreksi AI (opsional, paling akurat)</label><select id="ai_fix">
-          <option value="off">Mati</option>
-          <option value="gemini">Gemini — ikut MENDENGARKAN audio ⭐</option>
-          <option value="claude">Claude — koreksi dari konteks teks</option></select></div>
-        <div class="aikey"><label>API key <span id="keyState" class="pill"></span></label><input type="password" id="ai_key" placeholder="tempel API key (disimpan di browser ini)" autocomplete="off"></div>
-      </div>
-      <details class="aikey"><summary>Pengaturan lanjutan koreksi AI</summary>
-        <label>Nama model (kosongkan = bawaan)</label><input type="text" id="ai_model" placeholder="gemini-flash-latest / claude-haiku-5-5">
-        <div class="hint">API key Gemini gratis dari Google AI Studio. API key Claude dari console Anthropic (berbayar per pemakaian). Key hanya disimpan di browser ini dan dikirim langsung ke Google/Anthropic.</div>
+      <div class="cell col"><span class="t">Rata</span>
+        <div class="seg" data-k="hook_align"><button data-v="kiri" class="on">Kiri</button><button data-v="tengah">Tengah</button><button data-v="kanan">Kanan</button></div></div>
+      <div class="cell col"><div class="lr"><span class="t">Ukuran</span><output data-for="hook_size"></output></div><input type="range" data-k="hook_size" min="30" max="120" value="58"></div>
+      <div class="cell col"><div class="lr"><span class="t">Lebar maksimal</span><output data-for="hook_w" data-fmt="%"></output></div><input type="range" data-k="hook_w" min="40" max="98" value="84"></div>
+      <label class="cell" data-show="!intro_on"><span class="t">Tampil</span><select data-k="hook_secs"><option value="0">Sepanjang video</option><option value="3">3 detik pertama</option><option value="5">5 detik pertama</option><option value="8">8 detik pertama</option></select></label>
+      <details class="more">
+        <summary class="cell">Warna dan gaya</summary>
+        <label class="cell" data-show="hook_tpl=kutipan,kotak,strip"><span class="t">Warna kotak</span><input type="color" data-k="hook_bg" value="#ffffff"></label>
+        <label class="cell"><span class="t">Warna teks</span><input type="color" data-k="hook_txt" value="#161616"></label>
+        <label class="cell"><span class="t">Warna sorotan</span><input type="color" data-k="hook_acc" value="#57c2ae"></label>
+        <div class="cell col" data-show="hook_tpl=kutipan,kotak,strip"><div class="lr"><span class="t">Kepekatan kotak</span><output data-for="hook_bg_op" data-fmt="%"></output></div><input type="range" data-k="hook_bg_op" min="20" max="100" value="100"></div>
+        <div class="cell col" data-show="hook_tpl=polos,label"><div class="lr"><span class="t">Garis tepi teks</span><output data-for="hook_outline"></output></div><input type="range" data-k="hook_outline" min="0" max="20" value="10"></div>
+        <label class="cell" data-show="hook_tpl=label"><span class="t">Teks label</span><input type="text" data-k="hook_label" placeholder="nama channel"></label>
+        <label class="cell"><span class="t">Font</span><select data-k="hook_font" id="hook_font"></select></label>
+        <div class="cell col"><span class="t">Muncul</span><div class="seg" data-k="hook_anim"><button data-v="halus" class="on">Naik pelan</button><button data-v="none">Langsung</button></div></div>
+        <label class="cell"><span class="t">Huruf besar</span><span class="sw"><input type="checkbox" data-k="hook_upper" checked><i></i></span></label>
+        <label class="cell"><span class="t">Sudut membulat</span><span class="sw"><input type="checkbox" data-k="hook_round"><i></i></span></label>
       </details>
-      <label class="check"><input type="checkbox" id="review" checked> Cek &amp; edit subtitle dulu sebelum render</label>
+      <label class="cell"><span class="t">Judul dari AI</span><select data-k="hook_ai"><option value="off">Mati</option><option value="gemini">Gemini</option><option value="claude">Claude</option></select></label>
     </div>
-  </div>
+    <p class="foot">Tarik judul di preview untuk memindahkannya. Judul dari AI memberi 3 pilihan judul, caption, dan momen paling seru. Perlu subtitle aktif dan kunci API.</p>
 
-  <div class="card">
-    <h2><span class="num">5</span>Watermark, logo &amp; hook</h2>
-    <div class="grid2">
-      <div><label>Teks watermark</label><input type="text" id="wm_text" placeholder="@akunclipkamu"></div>
-      <div><label>Gaya watermark</label><select id="wm_mode">
-        <option value="pojok">Di pojok (kecil)</option>
-        <option value="diagonal">Diagonal besar transparan</option>
-        <option value="pola">Pola berulang (anti-colong)</option>
-        <option value="pindah">Pindah-pindah pojok (anti-crop)</option>
-        <option value="belakang">Di belakang video (layer bawah)</option></select></div>
+    <h2>Intro</h2>
+    <div class="list">
+      <label class="cell"><span class="t">Putar momen seru dulu, lalu ulang dari awal</span><span class="sw"><input type="checkbox" data-k="intro_on"><i></i></span></label>
+      <div data-show="intro_on">
+        <label class="cell"><span class="t">Lama intro</span><select data-k="intro_len"><option value="2">2 detik</option><option value="3" selected>3 detik</option><option value="4">4 detik</option><option value="5">5 detik</option><option value="7">7 detik</option></select></label>
+        <div class="cell col"><span class="t">Efek saat diulang</span><div class="seg" data-k="intro_fx"><button data-v="none" class="on">Langsung</button><button data-v="flash">Kilat putih</button><button data-v="rewind">Rewind</button></div></div>
+      </div>
     </div>
-    <div class="grid3">
-      <div class="wmpos"><label>Posisi</label><select id="wm_pos">
-        <option value="kanan-atas">Kanan atas</option><option value="kiri-atas">Kiri atas</option>
-        <option value="kanan-bawah">Kanan bawah</option><option value="kiri-bawah">Kiri bawah</option>
-        <option value="atas-tengah">Atas tengah</option><option value="bawah-tengah">Bawah tengah</option><option value="tengah">Tengah</option></select></div>
-      <div><label>Transparansi (opacity) <b id="vOp"></b></label><input type="range" id="wm_opacity" min="5" max="100" value="70"></div>
-      <div><label>Ukuran <b id="vWs"></b></label><input type="range" id="wm_size" min="16" max="220" value="40"></div>
-      <div class="wmang"><label>Kemiringan <b id="vAng"></b></label><input type="range" id="wm_angle" min="-90" max="90" value="30"></div>
-      <div class="wmevery"><label>Pindah tiap <b id="vEv"></b></label><input type="range" id="wm_every" min="2" max="15" value="5"></div>
-      <div><label>Warna</label><select id="wm_color"><option value="putih">Putih</option><option value="hitam">Hitam</option><option value="kuning">Kuning</option><option value="merah">Merah</option><option value="biru">Biru</option></select></div>
-      <div><label>Font watermark</label><select id="wm_font"></select></div>
-    </div>
-    <div class="hint" id="wmHint"></div>
+    <p class="foot" data-show="intro_on">Momen intro diambil dari kolom "Intro dari" di tiap potongan. Kalau kosong, dipakai awal potongan atau momen pilihan AI.</p>
+  </section>
 
-    <h3>Logo (gambar PNG)</h3>
-    <div class="row">
-      <label class="check fix" style="margin:0"><input type="checkbox" id="logo_on"> Pakai logo</label>
-      <label class="btn fix">Pilih gambar<input type="file" id="logoFile" accept="image/*" hidden></label>
-      <img id="logoThumb" class="fix" alt="logo">
-      <button class="fix" id="btnLogoDel">Hapus</button>
+  <!-- 6. MEREK -->
+  <section class="group">
+    <h2>Watermark</h2>
+    <div class="list">
+      <label class="cell"><span class="t">Teks</span><input type="text" data-k="wm_text" placeholder="@akunkamu"></label>
+      <label class="cell"><span class="t">Gaya</span><select data-k="wm_mode"><option value="pojok">Di pojok</option><option value="diagonal">Diagonal besar</option><option value="pola">Pola berulang</option><option value="pindah">Pindah pojok</option><option value="belakang">Di belakang video</option></select></label>
+      <label class="cell" data-show="wm_mode=pojok"><span class="t">Posisi</span><select data-k="wm_pos"><option value="kanan-atas">Kanan atas</option><option value="kiri-atas">Kiri atas</option><option value="kanan-bawah">Kanan bawah</option><option value="kiri-bawah">Kiri bawah</option><option value="atas-tengah">Atas tengah</option><option value="bawah-tengah">Bawah tengah</option><option value="tengah">Tengah</option></select></label>
+      <details class="more">
+        <summary class="cell">Ukuran dan warna</summary>
+        <div class="cell col"><div class="lr"><span class="t">Kepekatan</span><output data-for="wm_opacity" data-fmt="%"></output></div><input type="range" data-k="wm_opacity" min="5" max="100" value="70"></div>
+        <div class="cell col"><div class="lr"><span class="t">Ukuran</span><output data-for="wm_size"></output></div><input type="range" data-k="wm_size" min="16" max="220" value="40"></div>
+        <div class="cell col" data-show="wm_mode=diagonal,pola,belakang"><div class="lr"><span class="t">Kemiringan</span><output data-for="wm_angle" data-fmt="deg"></output></div><input type="range" data-k="wm_angle" min="-90" max="90" value="30"></div>
+        <div class="cell col" data-show="wm_mode=pindah"><div class="lr"><span class="t">Pindah tiap</span><output data-for="wm_every" data-fmt="s"></output></div><input type="range" data-k="wm_every" min="2" max="15" value="5"></div>
+        <label class="cell"><span class="t">Warna</span><select data-k="wm_color"><option value="putih">Putih</option><option value="hitam">Hitam</option><option value="kuning">Kuning</option><option value="merah">Merah</option><option value="biru">Biru</option></select></label>
+        <label class="cell"><span class="t">Font</span><select data-k="wm_font" id="wm_font"></select></label>
+      </details>
     </div>
-    <div class="grid3">
-      <div><label>Posisi logo</label><select id="logo_pos">
-        <option value="kanan-atas">Kanan atas</option><option value="kiri-atas">Kiri atas</option>
-        <option value="kanan-bawah">Kanan bawah</option><option value="kiri-bawah">Kiri bawah</option>
-        <option value="atas-tengah">Atas tengah</option><option value="bawah-tengah">Bawah tengah</option><option value="tengah">Tengah</option></select></div>
-      <div><label>Ukuran logo <b id="vLs"></b></label><input type="range" id="logo_size" min="5" max="60" value="18"></div>
-      <div><label>Opacity logo <b id="vLo"></b></label><input type="range" id="logo_opacity" min="10" max="100" value="90"></div>
+    <p class="foot" data-show="wm_mode=belakang">Watermark di belakang hanya kelihatan di area blur (kamera Tengah dengan zoom kecil).</p>
+
+    <h2>Logo</h2>
+    <div class="list">
+      <label class="cell"><span class="t">Pakai logo</span><span class="sw"><input type="checkbox" data-k="logo_on"><i></i></span></label>
+      <div class="cell"><span class="t">Gambar</span><span class="v"><img class="thumb" id="logoThumb" alt="" hidden><label class="link">Pilih<input type="file" id="logoFile" accept="image/*" hidden></label></span></div>
+      <div data-show="logo_on">
+        <label class="cell"><span class="t">Posisi</span><select data-k="logo_pos"><option value="kanan-atas">Kanan atas</option><option value="kiri-atas">Kiri atas</option><option value="kanan-bawah">Kanan bawah</option><option value="kiri-bawah">Kiri bawah</option><option value="atas-tengah">Atas tengah</option><option value="bawah-tengah">Bawah tengah</option><option value="tengah">Tengah</option></select></label>
+        <div class="cell col"><div class="lr"><span class="t">Ukuran</span><output data-for="logo_size" data-fmt="%"></output></div><input type="range" data-k="logo_size" min="5" max="60" value="18"></div>
+        <div class="cell col"><div class="lr"><span class="t">Kepekatan</span><output data-for="logo_opacity" data-fmt="%"></output></div><input type="range" data-k="logo_opacity" min="10" max="100" value="90"></div>
+      </div>
     </div>
 
-    <h3>Judul hook</h3>
-    <div class="grid3">
-      <div><label>Gaya hook</label><select id="hook_box"><option value="putih">Bingkai putih (teks hitam)</option><option value="hitam">Bingkai hitam (teks putih)</option><option value="polos">Polos — teks saja</option></select></div>
-      <div class="hkpolos"><label>Warna teks hook</label><select id="hook_color"><option value="putih">Putih</option><option value="kuning">Kuning</option><option value="hitam">Hitam</option><option value="merah">Merah</option><option value="biru">Biru</option><option value="hijau">Hijau</option></select></div>
-      <div class="hkpolos"><label>Garis tepi hook <b id="vHo"></b></label><input type="range" id="hook_outline" min="0" max="20" value="10"></div>
-      <div><label>Ukuran hook <b id="vHs"></b></label><input type="range" id="hook_size" min="36" max="110" value="58"></div>
-      <div><label>Font hook</label><select id="hook_font"></select></div>
-      <div class="hksecs"><label>Hook tampil</label><select id="hook_secs"><option value="0">Sepanjang video</option><option value="3">3 detik pertama</option><option value="5">5 detik pertama</option></select></div>
+    <h2>Banner atas</h2>
+    <div class="list">
+      <label class="cell"><span class="t">Pakai banner program atau sponsor</span><span class="sw"><input type="checkbox" data-k="banner_on"><i></i></span></label>
+      <div data-show="banner_on">
+        <div class="cell col"><span class="t">Isi banner</span><div class="seg" data-k="banner_mode"><button data-v="teks" class="on">Teks dan logo</button><button data-v="gambar">Gambar jadi</button></div></div>
+        <div data-show="banner_mode=teks">
+          <label class="cell"><span class="t">Teks kiri</span><input type="text" data-k="banner_text1" placeholder="BUAT KONTEN DI"></label>
+          <div class="cell"><span class="t">Logo</span><span class="v"><img class="thumb" id="bnLogoThumb" alt="" hidden><label class="link">Pilih<input type="file" id="bnLogoFile" accept="image/*" hidden></label><button class="link danger" id="bnLogoDel" type="button" hidden>Hapus</button></span></div>
+          <label class="cell"><span class="t">Teks kanan</span><input type="text" data-k="banner_text2" placeholder="nama program"></label>
+          <details class="more">
+            <summary class="cell">Ukuran dan warna</summary>
+            <div class="cell col"><div class="lr"><span class="t">Ukuran teks kiri</span><output data-for="banner_size"></output></div><input type="range" data-k="banner_size" min="16" max="60" value="30"></div>
+            <div class="cell col"><div class="lr"><span class="t">Ukuran teks kanan</span><output data-for="banner_size2"></output></div><input type="range" data-k="banner_size2" min="16" max="80" value="40"></div>
+            <div class="cell col"><div class="lr"><span class="t">Tinggi</span><output data-for="banner_h"></output></div><input type="range" data-k="banner_h" min="50" max="200" value="104"></div>
+            <div class="cell col"><div class="lr"><span class="t">Posisi logo</span><output data-for="banner_lx" data-fmt="autoPct"></output></div><input type="range" data-k="banner_lx" min="0" max="95" value="0"></div>
+            <label class="cell"><span class="t">Warna banner</span><input type="color" data-k="banner_bg" value="#000000"></label>
+            <div class="cell col"><div class="lr"><span class="t">Kepekatan</span><output data-for="banner_op" data-fmt="%"></output></div><input type="range" data-k="banner_op" min="0" max="100" value="60"></div>
+            <label class="cell"><span class="t">Warna teks</span><input type="color" data-k="banner_txt" value="#ffffff"></label>
+            <label class="cell"><span class="t">Garis tipis di bawah</span><span class="sw"><input type="checkbox" data-k="banner_line" checked><i></i></span></label>
+          </details>
+        </div>
+        <div data-show="banner_mode=gambar">
+          <div class="cell"><span class="t">Gambar banner</span><span class="v"><img class="thumb wide" id="bnThumb" alt="" hidden><label class="link">Pilih<input type="file" id="bnFile" accept="image/*" hidden></label></span></div>
+          <div class="cell col"><div class="lr"><span class="t">Lebar</span><output data-for="banner_w" data-fmt="%"></output></div><input type="range" data-k="banner_w" min="30" max="100" value="100"></div>
+        </div>
+        <div class="cell col"><div class="lr"><span class="t">Jarak dari atas</span><output data-for="banner_y" data-fmt="%"></output></div><input type="range" data-k="banner_y" min="0" max="40" step="0.5" value="4.5"></div>
+      </div>
     </div>
-    <h3>Intro hook + ulang dari awal</h3>
-    <label class="check"><input type="checkbox" id="intro_on"> Putar potongan + judul hook dulu, lalu video <b>diulang dari awal</b> tanpa judul hook</label>
-    <div class="grid3 intro">
-      <div><label>Durasi intro</label><select id="intro_len"><option value="2">2 detik</option><option value="3" selected>3 detik</option><option value="4">4 detik</option><option value="5">5 detik</option><option value="7">7 detik</option></select></div>
-      <div><label>Intro diambil dari</label><div class="hint" style="margin-top:6px">👆 isi kolom <b>"⏪ Intro dari"</b> di langkah 2, per clip (misal <b>1:23:40</b>)</div></div>
-      <div><label>Efek saat diulang</label><select id="intro_fx"><option value="none">Tanpa efek (langsung)</option><option value="flash">Kilat putih ⚡</option><option value="rewind">Rewind cepat ⏪</option></select></div>
-    </div>
-    <div class="hint intro">Contoh: clip 1:23:10–1:24:00, judul hook "MOOK YA ALLAH", intro dari <b>1:23:41</b> → penonton lihat 3 detik momen itu + judul hook, lalu video mulai lagi dari 1:23:10 tanpa judul. Kosongkan = 3 detik pertama clip.</div>
-    <h3>Sumber</h3>
-    <div class="grid2">
-      <div><label class="check"><input type="checkbox" id="credit" checked> Tulis "Sumber: ..."</label></div>
-      <div><label>Nama channel sumber</label><input type="text" id="channel" placeholder="contoh: Windah Basudara"></div>
-    </div>
-  </div>
 
-  <button class="big" id="btnGo" disabled>🎬 Buat Clip</button>
-
-  <div class="card" id="job" style="margin-top:18px">
-    <div class="jobhead"><h2 style="margin:0">Proses <span class="pill" id="clipNo"></span></h2><span class="big" id="pctAll">0%</span></div>
-    <div class="bar" style="margin-top:8px"><i id="barFill"></i></div>
-    <div id="stage">...</div>
-    <div class="hint" id="elapsed"></div>
-    <div class="steps" id="steps"></div>
-    <div id="notes"></div>
-    <div id="warns"></div>
-    <div class="err" id="err"></div>
-    <div id="rvBox">
-      <div class="warn">Periksa tulisan subtitle. Perbaiki kata yang salah, kosongkan baris untuk menghapus. Waktunya otomatis.</div>
-      <div id="rvRows" style="margin-top:10px"></div>
-      <button class="pri" id="btnRv">✅ Lanjut Render</button>
-      <button id="btnRvSkip">Pakai apa adanya</button>
+    <h2>Sumber</h2>
+    <div class="list">
+      <label class="cell"><span class="t">Tulis "Sumber: ..."</span><span class="sw"><input type="checkbox" data-k="credit" checked><i></i></span></label>
+      <label class="cell" data-show="credit"><span class="t">Nama channel</span><input type="text" data-k="channel" placeholder="Windah Basudara"></label>
     </div>
-    <div class="row" style="margin-top:12px"><button class="fix" id="btnCancel">Batalkan</button><span class="hint" style="margin:0">Biarkan tab ini tetap terbuka selama proses.</span></div>
-  </div>
+    <p class="foot">Clip hanya dari creator yang mengizinkan, dan selalu tulis sumbernya.</p>
+  </section>
 
-  <div class="card" id="resCard" style="display:none">
-    <h2>🎉 Hasil</h2>
-    <div class="hint">Klik <b>Download</b> untuk menyimpan. Hasil hilang kalau halaman ditutup.</div>
-    <div id="results"></div>
-  </div>
-</section>
-
-<aside>
-  <div class="card">
-    <h2 style="margin-bottom:8px">Preview <span class="pill" id="pvLabel">9:16</span></h2>
-    <canvas id="pv" width="1080" height="1920"></canvas>
-    <div class="pvctl" id="pvCtl">
-      <input type="range" id="pvTime" min="0" max="1" step="0.01" value="0">
-      <div class="vl"><span>geser untuk lihat frame lain di clip 1</span><b id="pvT">0:00</b></div>
+  <!-- 7. SUARA -->
+  <section class="group">
+    <h2>Sound effect</h2>
+    <div id="sfxRows"></div>
+    <div class="list">
+      <button class="cell action" id="btnSfxAdd" type="button">Tambah sound effect</button>
+      <label class="cell action">Upload file sound effect<input type="file" id="sfxFile" accept="audio/*" multiple hidden></label>
+      <div class="cell col" data-show="has_sfx"><div class="lr"><span class="t">Suara asli saat SFX bunyi</span><output data-for="sfx_duck" data-fmt="%"></output></div><input type="range" data-k="sfx_duck" min="10" max="100" value="45"></div>
     </div>
-    <div class="hint" id="pvHint">Pilih video dulu. Preview memakai mesin gambar yang sama dengan hasil render.</div>
+    <p class="foot" id="sfxFoot">Upload sound effect milikmu (MP3, WAV, M4A). File tersimpan di browser ini, jadi cukup sekali. Volumenya disamakan otomatis.</p>
+
+    <h2>Musik latar</h2>
+    <div class="list">
+      <label class="cell"><span class="t">Musik</span><select data-k="music" id="music"><option value="">Tanpa musik</option></select></label>
+      <label class="cell action">Upload musik<input type="file" id="musicFile" accept="audio/*" hidden></label>
+      <div data-show="music">
+        <div class="cell col"><div class="lr"><span class="t">Volume musik</span><output data-for="music_vol" data-fmt="%"></output></div><input type="range" data-k="music_vol" min="2" max="60" value="12"></div>
+        <label class="cell"><span class="t">Kecilkan saat ada yang bicara</span><span class="sw"><input type="checkbox" data-k="music_duck" checked><i></i></span></label>
+      </div>
+      <label class="cell"><span class="t">Samakan volume (-14 LUFS)</span><span class="sw"><input type="checkbox" data-k="loud_on" checked><i></i></span></label>
+    </div>
+    <p class="foot">Lagu populer bisa membuat video dibisukan TikTok. Lebih aman pakai musik bebas royalti, atau tambahkan lagu dari aplikasi TikTok saat upload.</p>
+  </section>
+
+  <!-- 8. EFEK -->
+  <section class="group">
+    <h2>Efek</h2>
+    <div class="list">
+      <label class="cell"><span class="t">Zoom kejut di momen heboh</span><span class="sw"><input type="checkbox" data-k="punch_on"><i></i></span></label>
+      <div data-show="punch_on">
+        <label class="cell"><span class="t">Cari momen otomatis</span><span class="sw"><input type="checkbox" data-k="punch_auto" checked><i></i></span></label>
+        <div class="cell col"><div class="lr"><span class="t">Maksimal per potongan</span><output data-for="punch_max"></output></div><input type="range" data-k="punch_max" min="1" max="10" value="4"></div>
+        <div class="cell col"><div class="lr"><span class="t">Kekuatan zoom</span><output data-for="punch_z" data-fmt="x"></output></div><input type="range" data-k="punch_z" min="1.05" max="1.5" step="0.01" value="1.18"></div>
+        <div class="cell col"><div class="lr"><span class="t">Lama zoom</span><output data-for="punch_len" data-fmt="s1"></output></div><input type="range" data-k="punch_len" min="0.4" max="3" step="0.1" value="1.2"></div>
+        <label class="cell col"><span class="t">Tambah di menit (pisahkan koma)</span><input type="text" data-k="punch_times" placeholder="1:23:41, 0:15"></label>
+      </div>
+      <label class="cell"><span class="t">Potong bagian hening</span><span class="sw"><input type="checkbox" data-k="jc_on"><i></i></span></label>
+      <div class="cell col" data-show="jc_on"><div class="lr"><span class="t">Kalau hening lebih dari</span><output data-for="jc_gap" data-fmt="s1"></output></div><input type="range" data-k="jc_gap" min="0.4" max="3" step="0.1" value="0.8"></div>
+      <label class="cell"><span class="t">Garis progres berjalan</span><span class="sw"><input type="checkbox" data-k="pbar_on"><i></i></span></label>
+      <div data-show="pbar_on">
+        <div class="cell col"><span class="t">Posisi</span><div class="seg" data-k="pbar_pos"><button data-v="bawah" class="on">Bawah</button><button data-v="atas">Atas</button></div></div>
+        <label class="cell"><span class="t">Warna</span><input type="color" data-k="pbar_col" value="#ffd400"></label>
+        <div class="cell col"><div class="lr"><span class="t">Tebal</span><output data-for="pbar_h"></output></div><input type="range" data-k="pbar_h" min="4" max="24" value="10"></div>
+      </div>
+      <label class="cell col"><span class="t">Teks penutup di akhir video</span><input type="text" data-k="cta_text" placeholder="PART 2 CEK DI BIO"></label>
+      <div data-show="cta_text">
+        <div class="cell col"><div class="lr"><span class="t">Tampil</span><output data-for="cta_secs" data-fmt="s1"></output></div><input type="range" data-k="cta_secs" min="1" max="8" step="0.5" value="3"></div>
+        <div class="cell col"><div class="lr"><span class="t">Posisi atas bawah</span><output data-for="cta_y" data-fmt="%"></output></div><input type="range" data-k="cta_y" min="10" max="90" value="45"></div>
+      </div>
+      <label class="cell"><span class="t">Simpan gambar cover</span><span class="sw"><input type="checkbox" data-k="cover_on" checked><i></i></span></label>
+    </div>
+    <p class="foot" data-show="jc_on">Untuk gameplay yang ramai aksi tapi sepi omongan, matikan potong hening supaya aksinya tidak ikut terpotong.</p>
+  </section>
+
+  <!-- 9. KUNCI API -->
+  <section class="group">
+    <h2>Kunci API (opsional)</h2>
+    <div class="list">
+      <label class="cell"><span class="t">Groq</span><input type="password" id="key_groq" placeholder="gsk_..." autocomplete="off" spellcheck="false"></label>
+      <label class="cell"><span class="t">Gemini</span><input type="password" id="key_gemini" placeholder="AIza..." autocomplete="off" spellcheck="false"></label>
+      <label class="cell"><span class="t">Claude</span><input type="password" id="key_claude" placeholder="sk-ant-..." autocomplete="off" spellcheck="false"></label>
+    </div>
+    <p class="foot">Tidak wajib. Tanpa kunci, subtitle tetap jalan di perangkat ini. Kunci hanya disimpan di browser kamu dan dikirim langsung ke Groq, Google, atau Anthropic. Jangan pakai kunci orang lain.</p>
+  </section>
+
+  <!-- 10. GAYA TERSIMPAN -->
+  <section class="group">
+    <h2>Gaya tersimpan</h2>
+    <div class="list">
+      <label class="cell"><span class="t">Pakai gaya</span><select id="presetSel"><option value="">Pilih</option></select></label>
+      <button class="cell action" id="btnPresetSave" type="button">Simpan pengaturan sekarang</button>
+      <button class="cell action danger" id="btnPresetDel" type="button" hidden>Hapus gaya ini</button>
+    </div>
+    <p class="foot">Simpan semua pengaturan dengan nama, misalnya per channel.</p>
+  </section>
+
+  <section class="group" id="resGroup" hidden>
+    <h2>Hasil</h2>
+    <div class="list" id="results"></div>
+    <p class="foot">Hasil hilang kalau halaman ditutup. Simpan dulu ke perangkat.</p>
+  </section>
+
+  <footer class="credits">
+    <p>KlipKu Web, bagian dari <a href="https://github.com/haigiefarzal/Clipper-Project" target="_blank" rel="noopener">Clipper Project</a>. Gratis dan open source (MIT).</p>
+  </footer>
+</div>
+
+<aside class="right">
+  <div class="pv-card">
+    <div class="pv-head">
+      <div class="seg mini" id="pvMode"><button data-v="awal" class="on">Awal</button><button data-v="akhir">Akhir</button></div>
+      <span class="muted" id="pvLabel">9:16</span>
+    </div>
+    <canvas id="pv" width="1080" height="1920" aria-label="Preview hasil"></canvas>
+    <input type="range" id="pvTime" min="0" max="1" step="0.05" value="0" aria-label="Geser waktu preview" hidden>
+    <p class="pv-hint" id="pvHint">Preview muncul setelah video dipilih.</p>
   </div>
 </aside>
 </main>
 
-<footer>
-  <span>KlipKu Web · <a href="https://github.com/haigiefarzal/Clipper-Project" target="_blank" rel="noopener">Clipper Project</a> · lisensi MIT</span>
-  <span>Clip hanya dari creator yang mengizinkan. Semua proses terjadi di browser kamu.</span>
-</footer>
+<div class="dock">
+  <div class="dock-in">
+    <span class="dock-status" id="dockStatus">Pilih video dulu</span>
+    <button class="btn primary" id="btnGo" type="button" disabled>Buat clip</button>
+  </div>
+</div>
+
+<div class="sheet-wrap" id="sheet" hidden>
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="sheetTitle">
+    <div class="sheet-grab" aria-hidden="true"></div>
+    <div class="sheet-head">
+      <button class="link" id="btnCancel" type="button">Batalkan</button>
+      <b id="sheetTitle">Membuat clip</b>
+      <button class="link strong" id="btnClose" type="button" hidden>Selesai</button>
+    </div>
+    <div class="sheet-body">
+      <div class="prog">
+        <div class="prog-top"><span id="stage">Menyiapkan...</span><b id="pctAll">0%</b></div>
+        <div class="track"><i id="barFill"></i></div>
+        <span class="muted small" id="elapsed"></span>
+      </div>
+      <div class="list" id="steps"></div>
+      <div id="notes"></div>
+      <div id="warns"></div>
+      <div class="alert" id="err" hidden></div>
+      <div id="rvBox" hidden>
+        <h3>Cek judul dan subtitle</h3>
+        <div class="list">
+          <label class="cell col"><span class="t">Judul hook</span><input type="text" id="rvTitle" placeholder="kosong berarti tanpa judul"></label>
+          <div class="cell col" id="rvHooks" hidden><span class="t">Saran AI, ketuk untuk pakai</span><div class="chips" id="rvChips"></div></div>
+          <label class="cell col" id="rvCapCell" hidden><span class="t">Caption</span><textarea id="rvCaption" rows="3"></textarea></label>
+        </div>
+        <p class="foot">Perbaiki kata yang salah. Kosongkan baris untuk menghapusnya.</p>
+        <div class="list" id="rvRows"></div>
+        <div class="row-btns"><button class="btn" id="btnRvSkip" type="button">Pakai apa adanya</button><button class="btn primary" id="btnRv" type="button">Lanjut render</button></div>
+      </div>
+      <div id="sheetResults"></div>
+    </div>
+  </div>
+</div>
 
 <script type="module" src="js/app.js"></script>
 </body>

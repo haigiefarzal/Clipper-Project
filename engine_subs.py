@@ -405,6 +405,10 @@ def apply_terms(words, terms, threshold=0.8):
     return words, fixes
 
 
+GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
+CLAUDE_URL = "https://api.anthropic.com/v1/messages"
+
+
 def _http_json(url, body, headers, timeout=90):
     req = urllib.request.Request(url, data=json.dumps(body).encode("utf-8"),
                                  headers=dict({"Content-Type": "application/json"}, **headers))
@@ -413,9 +417,9 @@ def _http_json(url, body, headers, timeout=90):
             return json.loads(r.read().decode("utf-8"))
     except urllib.error.HTTPError as ex:
         detail = ex.read().decode("utf-8", "replace")[:500]
-        raise SubError(f"Koreksi AI gagal (HTTP {ex.code}): {detail}")
+        raise SubError(f"Permintaan AI gagal (HTTP {ex.code}): {detail}")
     except Exception as ex:  # noqa
-        raise SubError(f"Koreksi AI gagal: {ex}")
+        raise SubError(f"Permintaan AI gagal: {ex}")
 
 
 def _parse_list(text, n):
@@ -447,7 +451,7 @@ def ai_correct(lines, provider, key, model, context, audio_path=None):
                                           "data": base64.b64encode(open(audio_path, "rb").read()).decode()}})
         parts.append({"text": prompt})
         mdl = model or "gemini-flash-latest"
-        res = _http_json(f"https://generativelanguage.googleapis.com/v1beta/models/{mdl}:generateContent",
+        res = _http_json(GEMINI_URL.format(model=mdl),
                          {"contents": [{"parts": parts}],
                           "generationConfig": {"temperature": 0, "responseMimeType": "application/json"}},
                          {"x-goog-api-key": key})
@@ -456,7 +460,7 @@ def ai_correct(lines, provider, key, model, context, audio_path=None):
         except Exception:
             raise SubError("Koreksi AI (Gemini): jawaban kosong. " + json.dumps(res)[:300])
     elif provider == "claude":
-        res = _http_json("https://api.anthropic.com/v1/messages",
+        res = _http_json(CLAUDE_URL,
                          {"model": model or "claude-haiku-5-5", "max_tokens": 4096,
                           "messages": [{"role": "user", "content": prompt}]},
                          {"x-api-key": key, "anthropic-version": "2023-06-01"})
@@ -467,6 +471,64 @@ def ai_correct(lines, provider, key, model, context, audio_path=None):
     else:
         return lines
     return _parse_list(text, n)
+
+
+def ai_hook(provider, key, model, chunks, context, audio_path=None):
+    """Minta AI 3 judul hook + caption + hashtag + detik momen puncak dari transkrip clip (dan audio untuk Gemini)."""
+    lines = [f"[{c['start']:.1f}s] {c['text']}" for c in chunks][:220]
+    dur = chunks[-1]["end"] if chunks else 0
+    prompt = (
+        "Kamu editor clip TikTok Indonesia yang jago bikin judul hook.\n"
+        f"Channel: {context.get('channel')}\nJudul video asli: {context.get('title')}\n"
+        f"Durasi clip: {dur:.0f} detik. Transkrip clip (detik dari awal clip):\n" + "\n".join(lines) + "\n\n"
+        + ("Dengarkan juga AUDIO terlampir untuk menangkap reaksi (teriak, ketawa, kaget).\n" if audio_path else "")
+        + "Tugas:\n"
+          "1. Buat 3 judul hook berbeda, masing-masing 4-10 kata, bahasa Indonesia santai, bikin penasaran, "
+          "sesuai isi clip (jangan bohong/clickbait palsu), tanpa emoji, tanpa tanda pagar. Sebut nama streamer "
+          "kalau relevan. Tandai 1-2 kata paling penting dengan bintang, contoh: MOMEN *WINDAH* KAGET.\n"
+          "2. Caption TikTok 1-2 kalimat (boleh 1 emoji).\n"
+          "3. 4-6 hashtag relevan (tanpa spasi).\n"
+          "4. Detik momen puncak (paling heboh/lucu) di dalam clip, untuk intro.\n"
+          'Jawab HANYA JSON: {"hooks":["..","..",".."],"caption":"..","hashtags":["#..",".."],"puncak":12.5}')
+    if provider == "gemini":
+        parts = []
+        if audio_path:
+            parts.append({"inline_data": {"mime_type": "audio/mp3",
+                                          "data": base64.b64encode(open(audio_path, "rb").read()).decode()}})
+        parts.append({"text": prompt})
+        res = _http_json(GEMINI_URL.format(model=model or "gemini-flash-latest"),
+                         {"contents": [{"parts": parts}],
+                          "generationConfig": {"temperature": 0.8, "responseMimeType": "application/json"}},
+                         {"x-goog-api-key": key})
+        try:
+            text = res["candidates"][0]["content"]["parts"][0]["text"]
+        except Exception:
+            raise SubError("Judul AI (Gemini): jawaban kosong. " + json.dumps(res)[:300])
+    elif provider == "claude":
+        res = _http_json(CLAUDE_URL, {"model": model or "claude-haiku-5-5", "max_tokens": 1200,
+                                      "messages": [{"role": "user", "content": prompt}]},
+                         {"x-api-key": key, "anthropic-version": "2023-06-01"})
+        try:
+            text = "".join(b.get("text", "") for b in res["content"])
+        except Exception:
+            raise SubError("Judul AI (Claude): jawaban kosong. " + json.dumps(res)[:300])
+    else:
+        return None
+    m = re.search(r"\{.*\}", text or "", flags=re.S)
+    try:
+        data = json.loads(m.group(0)) if m else {}
+    except Exception:
+        data = {}
+    hooks = [re.sub(r"\s+", " ", str(h)).strip() for h in (data.get("hooks") or []) if str(h).strip()][:3]
+    if not hooks:
+        raise SubError("Judul AI: jawaban tidak berisi judul. " + (text or "")[:200])
+    tags = [("#" + str(t).lstrip("#")).replace(" ", "") for t in (data.get("hashtags") or []) if str(t).strip()][:8]
+    try:
+        peak = float(data.get("puncak"))
+        peak = peak if 0 <= peak <= dur + 1 else None
+    except (TypeError, ValueError):
+        peak = None
+    return {"hooks": hooks, "caption": str(data.get("caption") or "").strip(), "hashtags": tags, "puncak": peak}
 
 
 def make_mp3(src, dest):
@@ -543,9 +605,9 @@ def _header(W, H, styles):
         "", "[Events]", "Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text"]
 
 
-def wm_corner(pos, W, H):
+def wm_corner(pos, W, H, safe_top=0.0):
     m = round(W * 0.04)
-    top, bot = round(H * 0.06), round(H * 0.12 if H > W else H * 0.07)
+    top, bot = round(max(H * 0.06, safe_top + H * 0.012)), round(H * 0.12 if H > W else H * 0.07)
     return {"kiri-atas": (7, m, top), "kanan-atas": (9, W - m, top), "kiri-bawah": (1, m, H - bot),
             "kanan-bawah": (3, W - m, H - bot), "atas-tengah": (8, W / 2, top), "bawah-tengah": (2, W / 2, H - bot),
             "tengah": (5, W / 2, H / 2)}.get(pos, (9, W - m, top))
@@ -567,10 +629,10 @@ def watermark_events(o, W, H, dur, font):
     ev = []
     T0, T1 = ass_time(0), ass_time(dur)
     if mode == "pojok":
-        an, x, y = wm_corner(o.get("wm_pos", "kanan-atas"), W, H)
-        ev.append(f"Dialogue: 3,{T0},{T1},WM,,0,0,0,,{{\\an{an}\\pos({x:.0f},{y:.0f}){base}}}{text}")
+        an, x, y = wm_corner(o.get("wm_pos", "kanan-atas"), W, H, float(o.get("_safe_top") or 0))
+        ev.append(f"Dialogue: 1,{T0},{T1},WM,,0,0,0,,{{\\an{an}\\pos({x:.0f},{y:.0f}){base}}}{text}")
     elif mode in ("diagonal", "belakang"):
-        ev.append(f"Dialogue: 3,{T0},{T1},WM,,0,0,0,,{{\\an5\\pos({W / 2:.0f},{H / 2:.0f})\\frz{ang:.0f}{base}}}{text}")
+        ev.append(f"Dialogue: 1,{T0},{T1},WM,,0,0,0,,{{\\an5\\pos({W / 2:.0f},{H / 2:.0f})\\frz{ang:.0f}{base}}}{text}")
     elif mode == "pola":
         tw = len(text) * size * 0.62 * font["k"] / 1.4
         sx, sy = tw + size * 2.2, size * 4.2
@@ -581,7 +643,7 @@ def watermark_events(o, W, H, dur, font):
             for c in range(-1, cols):
                 x = c * sx + (sx / 2 if r % 2 else 0)
                 y = r * sy
-                ev.append(f"Dialogue: 3,{T0},{T1},WM,,0,0,0,,{{\\an5\\pos({x:.0f},{y:.0f})\\frz{ang:.0f}{base}}}{text}")
+                ev.append(f"Dialogue: 1,{T0},{T1},WM,,0,0,0,,{{\\an5\\pos({x:.0f},{y:.0f})\\frz{ang:.0f}{base}}}{text}")
                 count += 1
                 if count >= 120:
                     break
@@ -590,16 +652,17 @@ def watermark_events(o, W, H, dur, font):
         cycle = ["kanan-atas", "kanan-bawah", "kiri-bawah", "kiri-atas"]
         t, i = 0.0, 0
         while t < dur:
-            an, x, y = wm_corner(cycle[i % 4], W, H)
-            ev.append(f"Dialogue: 3,{ass_time(t)},{ass_time(min(dur, t + every))},WM,,0,0,0,,"
+            an, x, y = wm_corner(cycle[i % 4], W, H, float(o.get("_safe_top") or 0))
+            ev.append(f"Dialogue: 1,{ass_time(t)},{ass_time(min(dur, t + every))},WM,,0,0,0,,"
                       f"{{\\an{an}\\pos({x:.0f},{y:.0f})\\fad(250,250){base}}}{text}")
             t += every
             i += 1
     return ev
 
 
-def build_ass(chunks, dur, W, H, geom, o, fonts, hook, credit, include_wm=True, hook_span=None, flash_at=None):
-    """fonts: dict peran -> info font (registry)."""
+def build_ass(chunks, dur, W, H, geom, o, fonts, credit, include_wm=True, flash_at=None, extra=None):
+    """fonts: dict peran -> info font (registry). extra: baris Dialogue tambahan (hook, banner, dll)."""
+    from engine_hook import BOX_STYLE
     sf, wf = fonts["sub"], fonts["wm"]
     size = int(o.get("sub_size", 80))
     k = sf["k"]
@@ -608,30 +671,14 @@ def build_ass(chunks, dur, W, H, geom, o, fonts, hook, credit, include_wm=True, 
     hl = HIGHLIGHT.get(o.get("sub_color", "kuning"), HIGHLIGHT["kuning"])
     tc = TEXTCOL.get(o.get("sub_text", "putih"), "&HFFFFFF&")
     tc_ass = "&H00" + tc[2:-1]
-    hook_size = int(o.get("hook_size", 58))
-    hf = fonts.get("hook") or sf
-    hfs = max(8, round(hook_size * hf["k"]))
-    hm = round(W * 0.09)
-    box = o.get("hook_box", "putih")
-    if box == "hitam":
-        hook_style = (f"Style: Hook,{hf['full']},{hfs},&H00FFFFFF,&H000000FF,&H00000000,&H00000000,0,0,0,0,100,100,0,0,3,"
-                      f"{round(hook_size * 0.3)},0,5,{hm},{hm},0,1")
-    elif box == "polos":
-        hc = "&H00" + TEXTCOL.get(o.get("hook_color", "putih"), "&HFFFFFF&")[2:-1]
-        hol = max(0, round(hook_size * float(o.get("hook_outline", 10)) / 100))
-        hook_style = (f"Style: Hook,{hf['full']},{hfs},{hc},&H000000FF,&H00000000,&H80000000,0,0,0,0,100,100,0,0,1,"
-                      f"{hol},{max(0, hol // 2)},5,{hm},{hm},0,1")
-    else:
-        hook_style = (f"Style: Hook,{hf['full']},{hfs},&H00000000,&H000000FF,&H00FFFFFF,&H00FFFFFF,0,0,0,0,100,100,0,0,3,"
-                      f"{round(hook_size * 0.3)},0,5,{hm},{hm},0,1")
     styles = [
         f"Style: Sub,{sf['full']},{fs(size)},{tc_ass},&H000000FF,&H00000000,&H80000000,0,0,0,0,100,100,1,0,1,"
         f"{outline},{max(1, outline // 2)},5,40,40,0,1",
-        hook_style,
         f"Style: Small,{sf['full']},{fs(round(34 * W / 1080 if W < H else 30))},&H00FFFFFF,&H000000FF,&H00000000,"
         f"&H80000000,0,0,0,0,100,100,0,0,1,3,0,5,40,40,0,1",
         f"Style: WM,{wf['full']},{max(8, round(int(o.get('wm_size', 40)) * wf['k']))},&H00FFFFFF,&H000000FF,"
         f"&H00000000,&H00000000,0,0,0,0,100,100,0,0,1,2,0,5,10,10,0,1",
+        BOX_STYLE,
     ]
     L = _header(W, H, styles)
     up = (lambda s: s.upper()) if o.get("uppercase", True) else (lambda s: s)
@@ -640,14 +687,7 @@ def build_ass(chunks, dur, W, H, geom, o, fonts, hook, credit, include_wm=True, 
                  f"{{\\pos({W / 2:.0f},{geom['credit_y']:.0f})\\alpha&H40&}}{clean(credit)}")
     if include_wm:
         L += watermark_events(o, W, H, dur, wf)
-    if hook:
-        if hook_span:
-            h0, h1 = hook_span
-        else:
-            hs = float(o.get("hook_secs") or 0)
-            h0, h1 = 0.0, (dur if hs <= 0 else min(dur, hs))
-        L.append(f"Dialogue: 2,{ass_time(h0)},{ass_time(h1)},Hook,,0,0,0,,"
-                 f"{{\\pos({W / 2:.0f},{geom['hook_y']:.0f})\\fad(120,200)}}{up(clean(hook))}")
+    L += extra or []
     if flash_at is not None:  # kilat putih saat video "diulang"
         L.append(f"Dialogue: 6,{ass_time(flash_at)},{ass_time(flash_at + 0.35)},Small,,0,0,0,,"
                  f"{{\\an7\\pos(0,0)\\bord0\\shad0\\1c&HFFFFFF&\\1a&H00&\\fad(0,300)\\p1}}"

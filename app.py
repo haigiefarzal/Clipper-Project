@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-KlipKu 2 — alat clip YouTube pribadi.
+KlipKu 2 — alat clip YouTube & Twitch pribadi.
 Masukkan link + menit mulai/selesai -> keluar video vertikal 9:16 (facecam besar di atas, gameplay di bawah)
 lengkap dengan subtitle otomatis (Whisper), judul hook, dan watermark.
 
@@ -37,13 +37,17 @@ WORK = APP / "work"
 OUT = APP / "hasil"
 SETTINGS = WORK / "settings.json"
 W, H = 1080, 1920
-VERSION = "2.1"
+VERSION = "2.3"
 
 WORK.mkdir(exist_ok=True)
 OUT.mkdir(exist_ok=True)
 
+import engine_audio as EA  # noqa: E402
 import engine_fonts as EF  # noqa: E402
+import engine_hook as EH  # noqa: E402
 import engine_subs as ES  # noqa: E402
+
+SFX, MUSIC = EA.SFX_DIR, EA.MUSIC_DIR
 
 
 def log(msg):
@@ -78,11 +82,56 @@ def fmt_time(sec):
     return f"{h}:{m:02d}:{s:02d}" if h else f"{m}:{s:02d}"
 
 
+TW_VOD = re.compile(r"(?:(?:www|go|m)\.)?twitch\.tv/(?:[^/?#]+/v(?:ideo)?|videos)/(\d+)|player\.twitch\.tv/\?.*?\bvideo=v?(\d+)"
+                    r"|twitch\.tv/[^/?#]+/schedule\?vodID=(\d+)", re.I)
+TW_CLIP = re.compile(r"clips\.twitch\.tv/(?:embed\?.*?\bclip=|(?:[^/?#]+/)*)([A-Za-z0-9_-]+)"
+                     r"|(?:(?:www|go|m)\.)?twitch\.tv/(?:[^/?#]+/)?clip/([A-Za-z0-9_-]+)", re.I)
+TW_ANY = re.compile(r"(?:^|//|\.)twitch\.tv(?:/|$)", re.I)
+
+
+def norm_url(url):
+    url = (url or "").strip()
+    if url and not re.match(r"[a-z]+://", url, re.I):
+        url = "https://" + url
+    return url
+
+
+def platform(url):
+    return "twitch" if TW_ANY.search(url or "") else "youtube"
+
+
 def video_id(url):
-    m = re.search(r"(?:v=|youtu\.be/|/live/|/shorts/|/embed/)([A-Za-z0-9_-]{11})", url or "")
+    """Kunci unik video (dipakai untuk folder cache). YouTube: 11 karakter. Twitch: tw-v123 / twc-slug."""
+    url = (url or "").strip()
+    if TW_ANY.search(url):
+        m = TW_VOD.search(url)
+        if m:
+            return "tw-v" + next(g for g in m.groups() if g)
+        m = TW_CLIP.search(url)
+        if m:
+            return "twc-" + next(g for g in m.groups() if g)[:80]
+        if re.search(r"twitch\.tv/[A-Za-z0-9_]{2,}/?(?:[?#].*)?$", url, re.I):
+            raise UserError("Itu link channel / siaran LIVE Twitch. KlipKu butuh link VOD: buka channel-nya → tab "
+                            "Videos → pilih siaran yang sudah selesai → salin link (bentuknya twitch.tv/videos/123...).")
+        raise UserError("Link Twitch tidak dikenali. Pakai link VOD (twitch.tv/videos/123...) atau clip "
+                        "(clips.twitch.tv/... atau twitch.tv/nama/clip/...).")
+    m = re.search(r"(?:v=|youtu\.be/|/live/|/shorts/|/embed/)([A-Za-z0-9_-]{11})", url)
     if not m:
-        raise UserError("link YouTube tidak dikenali. Contoh: https://www.youtube.com/watch?v=xxxxxxxxxxx")
+        raise UserError("Link tidak dikenali. Bisa link YouTube (youtube.com/watch?v=...) atau Twitch "
+                        "(twitch.tv/videos/... atau clip Twitch).")
     return m.group(1)
+
+
+def source_link(info, s):
+    """Link sumber yang langsung lompat ke menit clip (untuk caption)."""
+    key = info.get("key") or info.get("id")
+    if info.get("platform") == "twitch":
+        if key.startswith("tw-v"):
+            h, r = divmod(int(s), 3600)
+            m, sec = divmod(r, 60)
+            return f"https://www.twitch.tv/videos/{key[4:]}?t={h}h{m}m{sec}s"
+        return info.get("url")
+    return f"https://youtu.be/{key}?t={int(s)}"
 
 
 def slug(text, n=40):
@@ -118,7 +167,16 @@ def run_lines(cmd, on_line=None, cwd=None):
     if proc.returncode != 0:
         joined = "\n".join(tail)
         hint = ""
-        if "Sign in to confirm" in joined or "bot" in joined.lower():
+        low = joined.lower()
+        if "twitch" in low and ("subscriber-only" in low or "login required" in low or "logged-in" in low
+                                or "--cookies" in low):
+            hint = "VOD Twitch ini khusus subscriber / butuh login, jadi tidak bisa diambil."
+        elif "twitch" in low and ("does not exist" in low or "404" in low or "not found" in low):
+            hint = ("VOD / clip Twitch tidak ditemukan. Mungkin sudah dihapus streamernya atau kedaluwarsa "
+                    "(VOD Twitch hanya disimpan sementara).")
+        elif "twitch" in low and "not currently live" in low:
+            hint = "Itu link channel Twitch yang sedang offline. Pakai link VOD (twitch.tv/videos/...)."
+        elif "Sign in to confirm" in joined or "not a bot" in low:
             hint = "YouTube minta verifikasi 'bukan bot'. Tunggu beberapa saat lalu coba lagi."
         elif "JavaScript runtime" in joined or "n challenge" in joined or "403" in joined:
             hint = "Kemungkinan yt-dlp perlu update atau Deno belum terpasang. Tutup KlipKu lalu buka lagi (otomatis update)."
@@ -157,12 +215,13 @@ def tool_status():
     return st
 
 
-# ============================================================================ youtube
+# ============================================================================ youtube & twitch
 
 _info_cache = {}
 
 
 def get_info(url):
+    url = norm_url(url)
     vid = video_id(url)
     if vid in _info_cache:
         return _info_cache[vid]
@@ -177,13 +236,38 @@ def get_info(url):
         if out.returncode != 0:
             raise UserError("Gagal membaca info video.\n" + out.stderr[-1200:])
         full = json.loads(out.stdout)
-        heights = [f.get("height") or 0 for f in full.get("formats", []) if f.get("vcodec") not in (None, "none")]
-        info = {k: full.get(k) for k in ("id", "title", "channel", "channel_id", "uploader", "duration",
-                                         "is_live", "was_live", "live_status")}
+        heights = []
+        for f in full.get("formats", []):
+            if f.get("vcodec") in ("none",):
+                continue
+            h = f.get("height") or 0
+            if not h:  # Twitch HLS: tinggi kadang hanya ada di nama format (1080p60, 720p30)
+                m = re.search(r"(\d{3,4})p", str(f.get("format_id") or "") + " " + str(f.get("format_note") or ""))
+                h = int(m.group(1)) if m else 0
+            heights.append(h)
+        info = {k: full.get(k) for k in ("id", "title", "channel", "channel_id", "uploader", "uploader_id",
+                                         "duration", "is_live", "was_live", "live_status")}
         info["max_height"] = max(heights) if heights else 0
         info["url"] = url
+        if platform(url) == "twitch":
+            info["platform"] = "twitch"
+            if vid.startswith("tw-v"):  # VOD: uploader = streamer
+                info["channel"] = info.get("channel") or info.get("uploader")
+                login = info.get("uploader_id") or info.get("uploader") or ""
+            else:  # clip: uploader = orang yang bikin clip, channel = streamer
+                info["clipper"] = info.get("uploader")
+                info["uploader"] = info.get("channel") or info.get("uploader")
+                login = info.get("channel") or ""
+            info["channel_id"] = "twitch:" + login.lower()
+            info["title"] = info.get("title") or "Siaran Twitch"
+        else:
+            info["platform"] = "youtube"
         cache.write_text(json.dumps(info, ensure_ascii=False), encoding="utf-8")
+    info["key"] = vid
+    info.setdefault("platform", platform(url))
     if info.get("is_live") or info.get("live_status") == "is_live":
+        if info.get("platform") == "twitch":
+            raise UserError("Siaran Twitch ini masih LIVE / masih diproses. Tunggu sampai streamnya selesai, lalu coba lagi.")
         raise UserError("Stream ini masih LIVE. Tunggu sampai selesai (jadi VOD), lalu coba lagi.")
     _info_cache[vid] = info
     return info
@@ -249,10 +333,11 @@ def probe(path):
 
 
 def make_preview(url, t):
+    url = norm_url(url)
     info = get_info(url)
     dur = float(info.get("duration") or 0)
     t = max(0.0, min(t, max(0.0, dur - 4)))
-    vdir = WORK / info["id"]
+    vdir = WORK / info["key"]
     src = download_section(url, t, t + 3, vdir / f"prev_{int(t)}", video_only=True, max_h=720)
     jpg = vdir / f"preview_{int(t)}.jpg"
     subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-ss", "1", "-i", str(src), "-frames:v", "1",
@@ -266,7 +351,7 @@ def make_preview(url, t):
         pass
     if not jpg.exists():
         raise UserError("Gagal mengambil gambar dari video.")
-    return f"/work/{info['id']}/{jpg.name}"
+    return f"/work/{info['key']}/{jpg.name}"
 
 
 
@@ -360,26 +445,6 @@ def facecam_graph(o, sw, sh, W, H):
 
 
 LOGO = WORK / "logo.png"
-
-
-def logo_chain(o, W, H, in_label, logo_idx, out_label):
-    """Tambahkan overlay logo PNG kalau aktif. -> (graph_tambahan, label_hasil)"""
-    if not (o.get("logo_on") and LOGO.exists()):
-        return "", in_label
-    lw = even(W * float(o.get("logo_size", 18)) / 100)
-    op = max(0.05, min(1.0, float(o.get("logo_opacity", 90)) / 100))
-    m = round(W * 0.04)
-    top = round(H * 0.06)
-    bot = round(H * (0.12 if H > W else 0.07))
-    pos = {"kiri-atas": (f"{m}", f"{top}"), "kanan-atas": (f"main_w-overlay_w-{m}", f"{top}"),
-           "kiri-bawah": (f"{m}", f"main_h-overlay_h-{bot}"),
-           "kanan-bawah": (f"main_w-overlay_w-{m}", f"main_h-overlay_h-{bot}"),
-           "atas-tengah": ("(main_w-overlay_w)/2", f"{top}"),
-           "bawah-tengah": ("(main_w-overlay_w)/2", f"main_h-overlay_h-{bot}"),
-           "tengah": ("(main_w-overlay_w)/2", "(main_h-overlay_h)/2")}.get(o.get("logo_pos", "kanan-atas"))
-    g = (f";[{logo_idx}:v]scale={lw}:-1,format=rgba,colorchannelmixer=aa={op:.2f}[lg];"
-         f"[{in_label}][lg]overlay={pos[0]}:{pos[1]}:shortest=1[{out_label}]")
-    return g, out_label
 
 
 # ============================================================================ subtitle pipeline
@@ -562,14 +627,15 @@ def encoder_chain(o):
 ENC_LABEL = dict(HW_CANDIDATES, libx264="CPU (x264)")
 
 
-# ============================================================================ intro hook (teaser + ulang)
+# ============================================================================ timeline (intro + potong jeda)
 
-def make_timeline(o, dur):
-    """-> list segmen output. Tanpa intro: satu segmen 'play' penuh."""
-    main = {"kind": "play", "src": 0.0, "dur": dur}
-    if not o.get("intro_on"):
-        segs = [main]
-    else:
+def make_timeline(o, dur, parts=None):
+    """-> list segmen output.
+    input "T" = potongan intro (dibuka terpisah dengan -ss, supaya RAM tidak penuh),
+    input "M" = clip utama (boleh terpotong-potong oleh fitur potong jeda)."""
+    parts = parts or [(0.0, dur)]
+    segs = []
+    if o.get("intro_on"):
         n = float(o.get("intro_len", 3) or 3)
         try:
             t0 = parse_time(str(o.get("intro_from") or "0"))
@@ -577,10 +643,11 @@ def make_timeline(o, dur):
             t0 = 0.0
         t0 = min(max(0.0, t0), max(0.0, dur - 0.6))
         n = max(0.5, min(n, dur - t0))
-        segs = [{"kind": "play", "src": t0, "dur": n, "teaser": True}]
+        segs.append({"kind": "play", "src": t0, "dur": n, "teaser": True, "input": "T"})
         if o.get("intro_fx") == "rewind":
-            segs.append({"kind": "rewind", "src": t0, "dur": n})
-        segs.append(dict(main, main=True))
+            segs.append({"kind": "rewind", "src": t0, "dur": n, "input": "T"})
+    for a, b in parts:
+        segs.append({"kind": "play", "src": a, "dur": b - a, "main": True, "input": "M"})
     t = 0.0
     for s in segs:
         s["out"] = t
@@ -589,8 +656,30 @@ def make_timeline(o, dur):
     return segs
 
 
+def out_mapper(segs):
+    """Waktu di dalam clip -> waktu di video hasil (bagian utama). Bagian yang terpotong -> lompat ke berikutnya."""
+    main = [s for s in segs if s.get("main")]
+
+    def f(t):
+        for s in main:
+            if s["src"] <= t < s["src"] + s["dur"]:
+                return s["out"] + t - s["src"]
+        for s in main:
+            if t < s["src"]:
+                return s["out"]
+        return None
+    return f
+
+
+def teaser_times(segs, t):
+    sg = next((s for s in segs if s.get("teaser")), None)
+    if sg and sg["src"] <= t < sg["src"] + sg["dur"]:
+        return [sg["out"] + t - sg["src"]]
+    return []
+
+
 def shift_chunks(chunks, segs):
-    """Susun ulang subtitle mengikuti timeline output (teaser + ulang)."""
+    """Susun ulang subtitle mengikuti timeline output (teaser + ulang + potong jeda)."""
     out = []
     for sg in segs:
         if sg["kind"] != "play":
@@ -605,27 +694,58 @@ def shift_chunks(chunks, segs):
     return out
 
 
-def timeline_graph(segs, F, has_audio):
-    """Filter untuk menyusun teaser + (rewind) + video utama dari input 0. -> (graph, vlabel, alabel)"""
-    n = len(segs)
-    g = [f"[0:v]split={n}" + "".join(f"[tv{i}]" for i in range(n))]
+AFMT = "aformat=sample_fmts=fltp:sample_rates=48000:channel_layouts=stereo"
+
+
+def timeline_graph(segs, F, has_audio, m_idx, t_idx, video=True):
+    """Filter penyusun timeline. Bagian utama dari input m_idx (urut waktu -> aman RAM),
+    intro/rewind dari input t_idx. -> (graph, vlabel, alabel)"""
+    g = []
+    main = [i for i, s in enumerate(segs) if s["input"] == "M"]
+    tz = [i for i, s in enumerate(segs) if s["input"] == "T"]
+    many = len(main) > 1
+    if video:
+        if many:
+            g.append(f"[{m_idx}:v]split={len(main)}" + "".join(f"[tv{i}]" for i in main))
+        if tz:
+            g.append(f"[{t_idx}:v]setpts=PTS-STARTPTS,fps={F},format=yuv420p,setsar=1"
+                     + (f",split={len(tz)}" if len(tz) > 1 else "") + "".join(f"[tz{i}]" for i in tz))
     if has_audio:
-        g.append(f"[0:a]asplit={n}" + "".join(f"[ta{i}]" for i in range(n)))
+        if many:
+            g.append(f"[{m_idx}:a]asplit={len(main)}" + "".join(f"[ta{i}]" for i in main))
+        if tz:
+            g.append(f"[{t_idx}:a]asetpts=PTS-STARTPTS,{AFMT}" + (f",asplit={len(tz)}" if len(tz) > 1 else "")
+                     + "".join(f"[tza{i}]" for i in tz))
     cat = ""
     for i, sg in enumerate(segs):
-        trim = f"trim=start={sg['src']:.3f}:duration={sg['dur']:.3f}"
-        if sg["kind"] == "rewind":
-            g.append(f"[tv{i}]{trim},setpts=(PTS-STARTPTS)/4,fps={F},reverse,format=yuv420p,setsar=1[sv{i}]")
+        if sg["input"] == "T":
+            if video:
+                if sg["kind"] == "rewind":
+                    g.append(f"[tz{i}]setpts=PTS/4,fps={F},reverse[sv{i}]")
+                else:
+                    g.append(f"[tz{i}]null[sv{i}]")
             if has_audio:
-                g.append(f"[ta{i}]atrim=start={sg['src']:.3f}:duration={sg['dur']:.3f},asetpts=PTS-STARTPTS,"
-                         f"areverse,atempo=2.0,atempo=2.0,volume=0.6[sa{i}]")
+                if sg["kind"] == "rewind":
+                    g.append(f"[tza{i}]areverse,atempo=2.0,atempo=2.0,volume=0.6[sa{i}]")
+                else:
+                    g.append(f"[tza{i}]anull[sa{i}]")
         else:
-            g.append(f"[tv{i}]{trim},setpts=PTS-STARTPTS,fps={F},format=yuv420p,setsar=1[sv{i}]")
+            vsrc = f"[tv{i}]" if many else f"[{m_idx}:v]"
+            asrc = f"[ta{i}]" if many else f"[{m_idx}:a]"
+            if video:
+                g.append(f"{vsrc}trim=start={sg['src']:.3f}:duration={sg['dur']:.3f},setpts=PTS-STARTPTS,fps={F},"
+                         f"format=yuv420p,setsar=1[sv{i}]")
             if has_audio:
-                g.append(f"[ta{i}]atrim=start={sg['src']:.3f}:duration={sg['dur']:.3f},asetpts=PTS-STARTPTS[sa{i}]")
-        cat += f"[sv{i}]" + (f"[sa{i}]" if has_audio else "")
-    g.append(f"{cat}concat=n={n}:v=1:a={1 if has_audio else 0}[vin]" + ("[ain]" if has_audio else ""))
-    return ";".join(g), "vin", ("ain" if has_audio else None)
+                fade = ""
+                if many and sg["dur"] > 0.1:
+                    fade = f",afade=t=in:d=0.015,afade=t=out:st={sg['dur'] - 0.015:.3f}:d=0.015"
+                g.append(f"{asrc}atrim=start={sg['src']:.3f}:duration={sg['dur']:.3f},asetpts=PTS-STARTPTS,"
+                         f"{AFMT}{fade}[sa{i}]")
+        cat += (f"[sv{i}]" if video else "") + (f"[sa{i}]" if has_audio else "")
+    n = len(segs)
+    outs = ("[vin]" if video else "") + ("[ain]" if has_audio else "")
+    g.append(f"{cat}concat=n={n}:v={1 if video else 0}:a={1 if has_audio else 0}{outs}")
+    return ";".join(g), ("vin" if video else None), ("ain" if has_audio else None)
 
 
 def has_audio_stream(path):
@@ -634,9 +754,215 @@ def has_audio_stream(path):
     return bool(out.strip())
 
 
+def clip_rel(raw, s, e, what="Waktu"):
+    """'1:23:40' (menit video) atau '0:12' (detik di dalam clip) -> detik relatif dalam clip."""
+    raw = str(raw or "").strip()
+    if not raw:
+        return None
+    t = parse_time(raw)
+    if s <= t < e:
+        return t - s
+    if t < e - s and t < s:
+        return t
+    raise UserError(f"{what} {raw} harus di antara mulai ({fmt_time(s)}) dan selesai ({fmt_time(e)}) clip itu.")
+
+
+# ============================================================================ efek tambahan
+
+def image_size(path):
+    try:
+        out = subprocess.run(["ffprobe", "-v", "error", "-select_streams", "v:0", "-show_entries",
+                              "stream=width,height", "-of", "csv=p=0:s=x", str(path)], capture_output=True,
+                             text=True).stdout.strip()
+        w, h = out.split("x")[:2]
+        return int(w), int(h)
+    except Exception:
+        return None
+
+
+def jump_parts(job, o, words, src, dur):
+    if not o.get("jc_on"):
+        return [(0.0, dur)]
+    gap = max(0.3, float(o.get("jc_gap") or 0.8))
+    spans = EA.speech_spans(words=words or None, src=src)
+    parts = EA.keep_parts(spans, dur, min_gap=gap)
+    cut = dur - sum(b - a for a, b in parts)
+    if cut > 0.2:
+        job.notes.append(f"Potong jeda: {len(parts) - 1 if len(parts) > 1 else 1} bagian sepi dibuang "
+                         f"(hemat {cut:.1f} detik).")
+    return parts
+
+
+def punch_windows(job, o, src, clip_s, clip_e, dur):
+    """Zoom kejut -> list waktu mulai (detik dalam clip)."""
+    if not o.get("punch_on"):
+        return []
+    length = max(0.3, float(o.get("punch_len") or 1.2))
+    ts = []
+    if o.get("punch_auto", True):
+        ts += EA.loud_moments(src, max_n=int(o.get("punch_max") or 4), min_gap=length + 2.5)
+    for raw in re.split(r"[,;\s]+", str(o.get("punch_times") or "")):
+        if not raw:
+            continue
+        try:
+            r = clip_rel(raw, clip_s, clip_e, "Waktu zoom")
+            if r is not None:
+                ts.append(r)
+        except UserError as ex:
+            job.warnings.append(str(ex))
+    ts = sorted(t for t in set(round(x, 2) for x in ts) if t < dur - 0.2)
+    clean = []
+    for t in ts:
+        if not clean or t - clean[-1] >= length:
+            clean.append(t)
+    if o.get("punch_auto", True) and not clean:
+        job.notes.append("Zoom kejut otomatis: tidak ada momen yang cukup heboh di clip ini.")
+    return clean
+
+
+def sfx_events(job, o, clip_no, s, e, segs, out_dur, words, punch_out):
+    """Daftar sound effect yang dipasang di clip ini (waktu dalam timeline output)."""
+    to_out = out_mapper(segs)
+    evs = []
+    intro = any(x.get("teaser") for x in segs)
+    main_start = next((x["out"] for x in segs if x.get("main")), 0.0)
+    for row in (o.get("sfx") or [])[:30]:
+        try:
+            if int(row.get("clip") or 0) not in (0, clip_no):
+                continue
+        except (TypeError, ValueError):
+            continue
+        it = EA.find("sfx", row.get("file") or "")
+        if not it:
+            job.warnings.append(f"Sound effect '{row.get('file')}' tidak ditemukan di folder sfx — dilewati.")
+            continue
+        L = float(row.get("len") or 0)
+        eff = min(L, it["dur"]) if L > 0 else it["dur"]
+        at = row.get("at", "awal")
+        times = []
+        if at == "awal":
+            times = [0.0]
+        elif at == "akhir":
+            times = [max(0.0, out_dur - eff)]
+        elif at == "ulang":
+            if intro:
+                times = [main_start]
+            else:
+                job.warnings.append(f"SFX '{it['name']}' (saat video diulang) dilewati: intro tidak aktif.")
+        elif at == "menit":
+            try:
+                r = clip_rel(row.get("time"), s, e, f"Waktu SFX '{it['name']}'")
+            except UserError as ex:
+                job.warnings.append(str(ex))
+                r = None
+            if r is not None:
+                t = to_out(r)
+                if t is not None:
+                    times = [t]
+        elif at == "kata":
+            target = [ES._bare(x) for x in str(row.get("time") or "").split() if ES._bare(x)]
+            if not target:
+                continue
+            if not words:
+                job.warnings.append(f"SFX '{it['name']}' (saat kata diucapkan) butuh subtitle aktif — dilewati.")
+                continue
+            bare = [ES._bare(w["t"]) for w in words]
+            last = -99.0
+            for i in range(len(words) - len(target) + 1):
+                if bare[i:i + len(target)] == target:
+                    t = to_out(words[i]["s"])
+                    if t is not None and t - last >= eff and len(times) < 6:
+                        times.append(t)
+                        last = t
+            if not times:
+                job.notes.append(f"SFX '{it['name']}': kata '{row.get('time')}' tidak terdengar di clip {clip_no}.")
+        elif at == "zoom":
+            times = list(punch_out)
+            if not times:
+                job.notes.append(f"SFX '{it['name']}' (tiap zoom kejut) tidak dipasang: tidak ada zoom kejut.")
+        for t in times:
+            if t < out_dur - 0.05:
+                evs.append({"path": SFX / it["id"], "t": t, "vol": max(0.0, float(row.get("vol") or 100)) / 100,
+                            "len": min(eff, out_dur - t), "gain": it["gain"], "dur": it["dur"],
+                            "name": it["name"]})
+    if evs:
+        job.notes.append("Sound effect: " + ", ".join(f"{x['name']} @{x['t']:.1f}s" for x in evs[:8])
+                         + (" ..." if len(evs) > 8 else ""))
+    return evs
+
+
+class Inputs:
+    """Pengumpul argumen input ffmpeg + nomor indeksnya."""
+
+    def __init__(self, start=0):
+        self.args, self.n = [], start
+
+    def add(self, args):
+        self.args += [str(a) for a in args]
+        self.n += 1
+        return self.n - 1
+
+
 # ============================================================================ render
 
-def render(job, src, out_path, chunks, words, o, hook, credit, tag):
+IMAGES = {"logo": WORK / "logo.png", "banner_logo": WORK / "banner_logo.png", "banner": WORK / "banner.png"}
+
+
+def overlay_chain(o, W, H, vlabel, inputs, F, banner):
+    """drawbox band banner + overlay gambar (banner, logo banner, logo) -> (graph_tambahan, label)."""
+    g, cur, k = [], vlabel, 0
+
+    def ov(path, scale, x, y, op=1.0):
+        nonlocal cur, k
+        idx = inputs.add(["-loop", "1", "-framerate", str(F), "-i", path])
+        alpha = f",colorchannelmixer=aa={op:.2f}" if op < 0.999 else ""
+        g.append(f"[{idx}:v]{scale},format=rgba{alpha}[ovi{k}];[{cur}][ovi{k}]overlay={x}:{y}:shortest=1[ovo{k}]")
+        cur = f"ovo{k}"
+        k += 1
+
+    if banner:
+        if banner["mode"] == "teks":
+            col = (o.get("banner_bg") or "#000000").lstrip("#")
+            op = max(0.0, min(1.0, float(o.get("banner_op") or 60) / 100))
+            y, h = int(banner["y"]), even(banner["h"])
+            box = f"drawbox=x=0:y={y}:w={W}:h={h}:color=0x{col}@{op:.2f}:t=fill"
+            if o.get("banner_line", True):
+                box += f",drawbox=x=0:y={y + h - 3}:w={W}:h=3:color=white@0.75:t=fill"
+            g.append(f"[{cur}]{box}[bnb]")
+            cur = "bnb"
+            if banner.get("logo"):
+                lg = banner["logo"]
+                ov(IMAGES["banner_logo"], f"scale=-2:{even(lg['h'])}", f"{lg['x']:.0f}", f"{lg['y']:.0f}")
+        elif banner["mode"] == "gambar":
+            bw = even(W * float(o.get("banner_w") or 100) / 100)
+            ov(IMAGES["banner"], f"scale={bw}:-2", "(main_w-overlay_w)/2", f"{H * float(o.get('banner_y') or 4.5) / 100:.0f}")
+    if o.get("logo_on") and IMAGES["logo"].exists():
+        lw = even(W * float(o.get("logo_size", 18)) / 100)
+        op = max(0.05, min(1.0, float(o.get("logo_opacity", 90)) / 100))
+        m, bot = round(W * 0.04), round(H * (0.12 if H > W else 0.07))
+        top = round(max(H * 0.06, float(o.get("_safe_top") or 0) + H * 0.012))
+        pos = {"kiri-atas": (f"{m}", f"{top}"), "kanan-atas": (f"main_w-overlay_w-{m}", f"{top}"),
+               "kiri-bawah": (f"{m}", f"main_h-overlay_h-{bot}"),
+               "kanan-bawah": (f"main_w-overlay_w-{m}", f"main_h-overlay_h-{bot}"),
+               "atas-tengah": ("(main_w-overlay_w)/2", f"{top}"),
+               "bawah-tengah": ("(main_w-overlay_w)/2", f"main_h-overlay_h-{bot}"),
+               "tengah": ("(main_w-overlay_w)/2", "(main_h-overlay_h)/2")}.get(o.get("logo_pos", "kanan-atas"))
+        ov(IMAGES["logo"], f"scale={lw}:-2", pos[0], pos[1], op)
+    return (";".join(g), cur)
+
+
+def punch_filter(vlabel, wins, z, W, H):
+    if not wins:
+        return "", vlabel
+    cw, ch = even(W / z), even(H / z)
+    en = "+".join(f"between(t,{a:.3f},{b:.3f})" for a, b in wins[:60])
+    g = (f"[{vlabel}]split=2[pk0][pk1];[pk1]crop={cw}:{ch}:{(W - cw) // 2}:{(H - ch) // 2},"
+         f"scale={W}:{H}:flags=bicubic[pkz];[pk0][pkz]overlay=0:0:enable='{en}'[pko]")
+    return g, "pko"
+
+
+def render(job, src, out_path, chunks, words, o, hook, credit, tag, clip_no=1, clip_s=0.0, clip_e=0.0,
+           hook_lines=None, channel=""):
     sw, sh, fps, dur = probe(src)
     audio = has_audio_stream(src)
     W, H = canvas(o)
@@ -646,10 +972,23 @@ def render(job, src, out_path, chunks, words, o, hook, credit, tag):
     fps_opt = str(o.get("fps", "30"))
     src_fps = max(1, round(fps))
     F = min(60, src_fps) if fps_opt == "src" else min(int(fps_opt), src_fps)
-    segs = make_timeline(o, dur)
-    intro = len(segs) > 1
+    parts = jump_parts(job, o, words, src, dur)
+    segs = make_timeline(o, dur, parts)
+    intro = any(s.get("teaser") for s in segs)
+    complex_tl = intro or len(parts) > 1 or parts[0][0] > 0.01 or parts[0][1] < dur - 0.01
     out_dur = sum(s["out_dur"] for s in segs)
-    main_seg = next(s for s in segs if s.get("main") or len(segs) == 1)
+    main_seg = next(s for s in segs if s.get("main"))
+    to_out = out_mapper(segs)
+    # zoom kejut
+    p_len = max(0.3, float(o.get("punch_len") or 1.2))
+    p_src = punch_windows(job, o, src, clip_s, clip_e, dur)
+    p_out = []
+    for t in p_src:
+        for x in ([to_out(t)] if to_out(t) is not None else []) + teaser_times(segs, t):
+            p_out.append(x)
+    p_out = sorted(set(round(x, 3) for x in p_out))
+    if p_out:
+        job.notes.append(f"Zoom kejut: {len(p_out)}× (" + ", ".join(f"{x:.1f}s" for x in p_out[:6]) + ")")
     tmp = WORK / f"r_{uuid.uuid4().hex[:8]}"
     tmp.mkdir()
     rel = tmp.relative_to(APP).as_posix()
@@ -676,23 +1015,79 @@ def render(job, src, out_path, chunks, words, o, hook, credit, tag):
         else:
             graph = None
             geom = auto_geom(o, W, H)
-        sub_chunks = shift_chunks(chunks, segs) if intro else chunks
-        hook_span = (0.0, segs[0]["out_dur"]) if intro else None
+        # ---- teks: hook, banner, penutup, progress bar
+        hf = fonts["hook"]
+        extra = []
+        banner = None
+        if o.get("banner_on"):
+            mode = o.get("banner_mode", "teks")
+            if mode == "gambar" and IMAGES["banner"].exists():
+                banner = {"mode": "gambar"}
+                sz = image_size(IMAGES["banner"])
+                if sz and sz[0]:
+                    bw = even(W * float(o.get("banner_w") or 100) / 100)
+                    o = dict(o, _safe_top=H * float(o.get("banner_y") or 4.5) / 100 + bw * sz[1] / sz[0])
+            elif mode == "teks":
+                asp = None
+                if IMAGES["banner_logo"].exists():
+                    sz = image_size(IMAGES["banner_logo"])
+                    asp = sz[0] / sz[1] if sz and sz[1] else None
+                bl = EH.banner_layout(o, W, H, hf, asp)
+                banner = dict(bl, mode="teks")
+                extra += EH.banner_events(bl, o, hf, out_dur)
+                o = dict(o, _safe_top=bl["bottom"])
+            else:
+                job.warnings.append("Banner gambar belum di-upload — banner dilewati.")
+        if hook:
+            h0, h1 = (0.0, segs[0]["out_dur"]) if intro else (0.0, out_dur)
+            hs = float(o.get("hook_secs") or 0)
+            if not intro and hs > 0:
+                h1 = min(out_dur, hs)
+            cfg, el = EH.prepare(hook, o, W, H, hf, geom["hook_y"], given=hook_lines,
+                                 label_text=(o.get("hook_label") or channel))
+            extra += EH.events(el, cfg, hf, h0, h1, anim=o.get("hook_anim", "halus"))
+        cta = (o.get("cta_text") or "").strip()
+        if cta:
+            secs = max(1.0, float(o.get("cta_secs") or 3))
+            ctpl = {"kutipan": "kotak", "kotak": "kotak", "strip": "strip"}.get(o.get("hook_tpl") or "", "polos")
+            ccfg, cel = EH.prepare(cta, o, W, H, hf, H * 0.45, tpl=ctpl,
+                                   size=float(o.get("hook_size") or 58) * 0.82, align="tengah", pos="bebas",
+                                   y_pct=float(o.get("cta_y") or 45))
+            extra += EH.events(cel, ccfg, hf, max(0.0, out_dur - secs), out_dur, anim="halus", layer=4)
+        extra += EH.pbar_events(o, W, H, out_dur)
+        sub_chunks = shift_chunks(chunks, segs) if complex_tl else chunks
         flash_at = main_seg["out"] if intro and o.get("intro_fx") == "flash" else None
-        (tmp / "main.ass").write_text(ES.build_ass(sub_chunks, out_dur, W, H, geom, o, fonts, hook, credit,
-                                                   include_wm=not behind, hook_span=hook_span, flash_at=flash_at),
+        (tmp / "main.ass").write_text(ES.build_ass(sub_chunks, out_dur, W, H, geom, o, fonts, credit,
+                                                   include_wm=not behind, flash_at=flash_at, extra=extra),
                                       encoding="utf-8")
         ass_f = f"ass={rel}/main.ass:{fontsdir}"
         audio_args = ["-c:a", "aac", "-b:a", "192k", "-ar", "48000"]
         tail = ["-movflags", "+faststart", "-pix_fmt", "yuv420p"]
-        logo_in = ["-loop", "1", "-framerate", str(F), "-i", str(LOGO)] if (o.get("logo_on") and LOGO.exists()) else []
+        # ---- sound effect & musik
+        sfx = sfx_events(job, o, clip_no, clip_s, clip_e, segs, out_dur, words, p_out)
+        music = None
+        if o.get("music"):
+            it = EA.find("musik", o["music"])
+            if it:
+                music = {"path": MUSIC / it["id"], "vol": float(o.get("music_vol") or 12),
+                         "duck": bool(o.get("music_duck", True)), "gain": it["gain"]}
+                job.notes.append(f"Musik latar: {it['name']} ({int(music['vol'])}%"
+                                 + (", otomatis mengecil saat ada suara)" if music["duck"] else ")"))
+            else:
+                job.warnings.append(f"Musik '{o['music']}' tidak ditemukan di folder musik — dilewati.")
+        base_gain = 0.0
+        if audio and o.get("loud_on", True):
+            lv = EA.lufs(src)
+            if lv is not None:
+                base_gain = max(-20.0, min(20.0, -14.0 - lv))
+                job.notes.append(f"Volume disamakan: {lv:.1f} → −14 LUFS ({base_gain:+.1f} dB).")
         t_start = time.time()
 
-        def show(p, extra=""):
-            el = time.time() - t_start
-            eta = el / p - el if p > 0.03 else None
-            parts = [x for x in (extra, f"sisa ±{eta:.0f} dtk" if eta is not None else "") if x]
-            job.step("render", p, " · ".join(parts))
+        def show(p, extra_txt=""):
+            el_ = time.time() - t_start
+            eta = el_ / p - el_ if p > 0.03 else None
+            bits = [x for x in (extra_txt, f"sisa ±{eta:.0f} dtk" if eta is not None else "") if x]
+            job.step("render", p, " · ".join(bits))
 
         if layout == "ai":
             import engine_camera as EC
@@ -711,20 +1106,29 @@ def render(job, src, out_path, chunks, words, o, hook, credit, tag):
                              f"detektor {det}.")
             if info["faces"] == 0:
                 job.warnings.append("AI kamera tidak menemukan wajah — kamera diam di tengah.")
-            lg, lab = logo_chain(o, W, H, "0:v", 2, "lgo")
-            post = (lg.lstrip(";") + ";" if lg else "") + f"[{lab}]{ass_f},format=yuv420p[v]"
-            amap = []
+            inp = Inputs(start=0)
+            inp.add(["-f", "rawvideo", "-pix_fmt", "bgr24", "-s", f"{W}x{H}", "-r", str(F), "-i", "-"])
+            m_idx = inp.add(["-i", src.resolve()])
+            t_idx = None
+            if intro and audio:
+                tsg = segs[0]
+                t_idx = inp.add(["-ss", f"{tsg['src']:.3f}", "-t", f"{tsg['dur']:.3f}", "-i", src.resolve()])
+            g = []
+            og, vcur = overlay_chain(o, W, H, "0:v", inp, F, banner)
+            if og:
+                g.append(og)
+            g.append(f"[{vcur}]{ass_f},format=yuv420p[v]")
+            base = None
             if audio:
-                if intro:
-                    tg, _, al = timeline_graph(segs, F, True)
-                    # pakai hanya bagian audio dari graph timeline (input 1 = video sumber)
-                    aparts = [p for p in tg.split(";") if "[0:a]" in p or "[ta" in p and "atrim" in p]
-                    acat = "".join(f"[sa{i}]" for i in range(len(segs)))
-                    agraph = ";".join(aparts).replace("[0:a]", "[1:a]") + f";{acat}concat=n={len(segs)}:v=0:a=1[aout]"
-                    post += ";" + agraph
-                    amap = ["-map", "[aout]"]
+                if complex_tl:
+                    ag, _, base = timeline_graph(segs, F, True, m_idx, t_idx, video=False)
+                    g.append(ag)
                 else:
-                    amap = ["-map", "1:a"]
+                    base = f"{m_idx}:a"
+            mg, alab, margs = EA.mix_graph(base, out_dur, sfx, music, o, inp.n, base_gain)
+            inp.args += margs
+            g.append(mg)
+            post = ";".join(g)
             vsegs = []
             for sg in segs:
                 if sg["kind"] == "rewind":
@@ -733,15 +1137,20 @@ def render(job, src, out_path, chunks, words, o, hook, credit, tag):
                     vsegs.append({"kind": "play", "start": sg["src"], "dur": sg["dur"],
                                   "capture": any(x["kind"] == "rewind" for x in segs) and sg.get("teaser")})
             nfr = len(rects)
+            pz = max(1.02, float(o.get("punch_z") or 1.18))
 
             def rect_at(t):
-                return rects[min(nfr - 1, max(0, int(round(t * F))))]
+                x, y, cw, ch = rects[min(nfr - 1, max(0, int(round(t * F))))]
+                if any(a <= t < a + p_len for a in p_src):
+                    nw, nh = cw / pz, ch / pz
+                    return (x + (cw - nw) / 2, y + (ch - nh) * 0.4, nw, nh)
+                return (x, y, cw, ch)
             last = None
             for enc in encoder_chain(o):
-                cmd = ["ffmpeg", "-y", "-v", "error", "-f", "rawvideo", "-pix_fmt", "bgr24", "-s", f"{W}x{H}",
-                       "-r", str(F), "-i", "-", "-i", str(src.resolve())] + logo_in + [
-                    "-filter_complex", post, "-map", "[v]"] + amap + video_codec_args(enc, o.get("crf", 18)) \
-                    + (audio_args if audio else []) + ["-shortest"] + tail + [str(out_path.resolve())]
+                cmd = ["ffmpeg", "-y", "-v", "error"] + inp.args + ["-filter_complex", post, "-map", "[v]",
+                                                                     "-map", f"[{alab}]"] \
+                    + video_codec_args(enc, o.get("crf", 18)) + audio_args + ["-t", f"{out_dur:.3f}"] + tail \
+                    + [str(out_path.resolve())]
                 job.set(f"{tag}: render video {W}×{H} (kamera AI, {ENC_LABEL.get(enc, enc)})...")
                 t_start = time.time()
                 try:
@@ -758,14 +1167,32 @@ def render(job, src, out_path, chunks, words, o, hook, credit, tag):
             if last:
                 raise UserError(f"Render gagal: {last}")
         else:
-            pre = ""
-            vin, ain = "0:v", ("0:a" if audio else None)
+            inp = Inputs(start=0)
+            m_idx = inp.add(["-i", src.resolve()])
+            t_idx = None
             if intro:
-                pre, vin, ain = timeline_graph(segs, F, audio)
+                tsg = segs[0]
+                t_idx = inp.add(["-ss", f"{tsg['src']:.3f}", "-t", f"{tsg['dur']:.3f}", "-i", src.resolve()])
+            g = []
+            base = f"{m_idx}:a" if audio else None
+            if complex_tl:
+                tg, vin, ain = timeline_graph(segs, F, audio, m_idx, t_idx)
+                g.append(tg)
                 graph = graph.replace("[0:v]", f"[{vin}]", 1)
-            lg, lab = logo_chain(o, W, H, "base", 1, "lgo")
-            full = (pre + ";" if pre else "") + graph + lg + f";[{lab}]{ass_f},fps={F},format=yuv420p[v]"
-            amap = (["-map", f"[{ain}]"] if intro else ["-map", "0:a"]) if ain else []
+                base = ain
+            g.append(graph)
+            pw = [(t, t + p_len) for t in p_out]
+            pg, vcur = punch_filter("base", pw, max(1.02, float(o.get("punch_z") or 1.18)), W, H)
+            if pg:
+                g.append(pg)
+            og, vcur = overlay_chain(o, W, H, vcur, inp, F, banner)
+            if og:
+                g.append(og)
+            g.append(f"[{vcur}]{ass_f},fps={F},format=yuv420p[v]")
+            mg, alab, margs = EA.mix_graph(base, out_dur, sfx, music, o, inp.n, base_gain)
+            inp.args += margs
+            g.append(mg)
+            full = ";".join(g)
             last = None
             for enc in encoder_chain(o):
                 speed = {"v": ""}
@@ -781,10 +1208,10 @@ def render(job, src, out_path, chunks, words, o, hook, credit, tag):
                 job.set(f"{tag}: render video {W}×{H} ({ENC_LABEL.get(enc, enc)})...")
                 t_start = time.time()
                 try:
-                    run_lines(["ffmpeg", "-y", "-hide_banner", "-loglevel", "error", "-nostats", "-progress", "pipe:1",
-                               "-i", str(src.resolve())] + logo_in + ["-filter_complex", full, "-map", "[v]"] + amap
-                              + video_codec_args(enc, o.get("crf", 18)) + (audio_args if ain else []) + tail
-                              + [str(out_path.resolve())], on_line, cwd=APP)
+                    run_lines(["ffmpeg", "-y", "-hide_banner", "-loglevel", "error", "-nostats", "-progress", "pipe:1"]
+                              + inp.args + ["-filter_complex", full, "-map", "[v]", "-map", f"[{alab}]"]
+                              + video_codec_args(enc, o.get("crf", 18)) + audio_args + ["-t", f"{out_dur:.3f}"]
+                              + tail + [str(out_path.resolve())], on_line, cwd=APP)
                     last = None
                     break
                 except UserError as ex:
@@ -795,6 +1222,10 @@ def render(job, src, out_path, chunks, words, o, hook, credit, tag):
             if last:
                 raise last
         job.step("render", 1.0, f"selesai dalam {time.time() - t_start:.0f} dtk")
+        if o.get("cover_on", True):
+            cover = out_path.with_name(out_path.stem + "_cover.jpg")
+            subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-ss", f"{min(0.8, out_dur / 2):.2f}", "-i",
+                            str(out_path), "-frames:v", "1", "-q:v", "2", str(cover)], capture_output=True)
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
     return sh
@@ -807,9 +1238,10 @@ JOBQ = queue.Queue()
 
 
 STEP_LABELS = {"download": "Download potongan video", "model": "Siapkan model subtitle",
-               "subs": "Bikin subtitle (Whisper)", "fix": "Koreksi subtitle", "review": "Cek subtitle (menunggu kamu)",
+               "subs": "Bikin subtitle (Whisper)", "fix": "Koreksi subtitle", "hookai": "AI bikin judul hook & caption",
+               "review": "Cek subtitle & judul (menunggu kamu)",
                "ai": "AI kamera: analisis wajah & pembicara", "render": "Render video"}
-STEP_W = {"download": 20, "model": 6, "subs": 24, "fix": 4, "review": 0, "ai": 12, "render": 34}
+STEP_W = {"download": 20, "model": 6, "subs": 24, "fix": 4, "hookai": 4, "review": 0, "ai": 12, "render": 34}
 
 
 class Job:
@@ -873,26 +1305,54 @@ class Job:
 
 def intro_rel(clip, s, e):
     """Waktu intro per clip -> detik relatif di dalam clip. Boleh menit video (1:23:40) atau detik clip (0:12)."""
-    raw = str(clip.get("intro") or "").strip()
-    if not raw:
+    return clip_rel(clip.get("intro"), s, e, "Intro")
+
+
+def hook_ai(job, o, src, chunks, info, tag):
+    prov = o.get("hook_ai", "off")
+    if prov not in ("gemini", "claude") or not chunks:
         return None
-    t = parse_time(raw)
-    if s <= t < e:
-        return t - s
-    if t < e - s and t < s:  # ditulis relatif terhadap clip
-        return t
-    raise UserError(f"Intro {raw} harus di antara mulai ({fmt_time(s)}) dan selesai ({fmt_time(e)}) clip itu.")
+    key = (load_settings().get("keys") or {}).get(prov)
+    if not key:
+        job.warnings.append(f"Judul AI ({prov}) dilewati: API key belum diisi.")
+        return None
+    job.set(f"{tag}: AI ({prov}) bikin judul hook & caption...")
+    job.step("hookai", 0.3, f"{prov} membaca transkrip" + (" & mendengarkan audio" if prov == "gemini" else ""))
+    mp3 = None
+    try:
+        if prov == "gemini":
+            mp3 = ES.make_mp3(src, src.with_suffix(".hook.mp3"))
+        res = ES.ai_hook(prov, key, o.get("ai_model", "") if o.get("ai_fix") == prov else "", chunks,
+                         {"title": info.get("title"), "channel": info.get("channel")}, mp3)
+        job.step("hookai", 1.0, f"{len(res['hooks'])} pilihan judul")
+        return res
+    except ES.SubError as ex:
+        job.warnings.append(str(ex))
+        job.step("hookai", 1.0, "gagal — lanjut tanpa judul AI")
+        return None
+    finally:
+        if mp3:
+            try:
+                mp3.unlink()
+            except OSError:
+                pass
 
 
 def process(job):
     o = job.opts
-    url = o["url"]
+    url = norm_url(o["url"])
     info = get_info(url)
-    vid = info["id"]
+    vid = info["key"]
+    plat = "Twitch" if info.get("platform") == "twitch" else "YouTube"
     dur_total = float(info.get("duration") or 0)
     if info.get("max_height") and info["max_height"] < 1080:
         job.warnings.append(f"Resolusi tertinggi video ini cuma {info['max_height']}p.")
-    credit = f"Sumber: {info.get('channel') or info.get('uploader') or 'YouTube'}" if o.get("credit", True) else ""
+    channel = info.get("channel") or info.get("uploader") or plat
+    src_name = channel
+    if info.get("platform") == "twitch" and str(info.get("channel_id") or "").startswith("twitch:") \
+            and re.fullmatch(r"[a-z0-9_]{2,}", info["channel_id"][7:]):
+        src_name = "twitch.tv/" + info["channel_id"][7:]
+    credit = f"Sumber: {src_name}" if o.get("credit", True) else ""
     for i, clip in enumerate(o["clips"]):
         job.clip_no = i + 1
         tag = f"Clip {i + 1}/{job.total}"
@@ -902,36 +1362,52 @@ def process(job):
         if dur_total and s >= dur_total:
             raise UserError(f"{tag}: waktu mulai {fmt_time(s)} melebihi durasi video ({fmt_time(dur_total)}).")
         e = min(e, dur_total) if dur_total else e
+        use_ai = o.get("subs", True) and o.get("hook_ai", "off") in ("gemini", "claude")
         keys = ["download"]
         if o.get("subs", True):
-            keys += ["model", "subs", "fix"] + (["review"] if o.get("review", True) else [])
+            keys += ["model", "subs", "fix"] + (["hookai"] if use_ai else []) + (["review"] if o.get("review", True) else [])
         if o.get("layout") == "ai":
             keys.append("ai")
         keys.append("render")
         job.begin_clip(keys)
         job.set(f"{tag}: download potongan video {fmt_time(s)}–{fmt_time(e)}")
-        job.step("download", 0.0, "menghubungi YouTube...")
+        job.step("download", 0.0, f"menghubungi {plat}...")
         src = download_section(url, s, e, WORK / vid / f"src_{job.id}_{i}",
                                on_progress=lambda p, info="": job.step("download", p, info))
         chunks, words = [], []
+        title = clip.get("title", "")
+        hook_lines = clip.get("hook_lines")
+        caption_ai, peak = None, None
         if o.get("subs", True):
             chunks, words = build_subtitles(job, src, o, info, tag, s)
+            sug = hook_ai(job, o, src, chunks, info, tag) if use_ai else None
+            if sug:
+                tags_txt = " ".join(sug["hashtags"])
+                caption_ai = (sug["caption"] + ("\n\n" + tags_txt if tags_txt else "")).strip()
+                peak = sug["puncak"]
+                if not title:
+                    title = sug["hooks"][0]
+                job.notes.append("Saran judul AI: " + " / ".join(sug["hooks"]))
             if o.get("review", True) and chunks:
                 job.step("review", 0.0, "klik Lanjut Render kalau sudah", state="jalan")
-                job.review = {"clip": i + 1, "title": clip.get("title", ""),
+                job.review = {"clip": i + 1, "title": title, "hooks": (sug or {}).get("hooks", []),
+                              "caption": caption_ai or "",
                               "chunks": [{"start": c["start"], "end": c["end"], "text": c["text"]} for c in chunks]}
                 job.status = "cek_subtitle"
-                job.set(f"{tag}: cek & perbaiki subtitle, lalu klik Lanjut Render")
+                job.set(f"{tag}: cek subtitle & judul, lalu klik Lanjut Render")
                 job._review_event.clear()
                 job._review_event.wait()
-                edited = job._review_result
+                edited = job._review_result or {}
                 job.review = None
                 job.status = "jalan"
-                if edited is not None:
-                    chunks = ES.apply_edits(chunks, edited)
+                if edited.get("chunks") is not None:
+                    chunks = ES.apply_edits(chunks, edited["chunks"])
+                if edited.get("hook") is not None:
+                    title = str(edited["hook"]).strip()
+                if edited.get("caption") is not None and str(edited["caption"]).strip():
+                    caption_ai = str(edited["caption"]).strip()
                 job.step("review", 1.0, "oke")
-        W, H = canvas(o)
-        name = (f"{slug(info.get('channel') or 'clip', 20)}_{slug(clip.get('title') or info.get('title'), 40)}"
+        name = (f"{slug(channel, 20)}_{slug(title or info.get('title'), 40)}"
                 f"_{int(s)}_{o.get('aspect', '9:16').replace(':', 'x')}")
         out_mp4 = OUT / f"{name}.mp4"
         n = 2
@@ -941,17 +1417,27 @@ def process(job):
         oc = o
         if o.get("intro_on"):
             rel = intro_rel(clip, s, e)
+            if rel is None and peak is not None:
+                rel = max(0.0, min(peak - 0.6, e - s - 1.0))
+                job.notes.append(f"Intro diambil dari momen puncak pilihan AI (detik {rel:.1f} di clip).")
             oc = dict(o, intro_from=str(rel if rel is not None else 0))
-        src_h = render(job, src, out_mp4, chunks, words, oc, clip.get("title", ""), credit, tag)
-        caption = (f"{clip.get('title') or info.get('title')}\n\n"
-                   f"Sumber: {info.get('channel')} — https://youtu.be/{vid}?t={int(s)}\n"
-                   f"#{slug(info.get('channel') or 'clip', 30).replace('-', '')} #clip #fyp")
+        src_h = render(job, src, out_mp4, chunks, words, oc, title, credit, tag, clip_no=i + 1, clip_s=s, clip_e=e,
+                       hook_lines=hook_lines if title == clip.get("title", "") else None, channel=channel)
+        plain_title = re.sub(r"[*|]", "", title or info.get("title") or "").strip()
+        src_line = f"Sumber: {channel} ({plat}) — {source_link(info, s)}"
+        if caption_ai:
+            caption = f"{caption_ai}\n\n{src_line}"
+        else:
+            caption = (f"{plain_title}\n\n{src_line}\n"
+                       f"#{slug(channel, 30).replace('-', '')} #clip #fyp")
         out_mp4.with_suffix(".txt").write_text(caption, encoding="utf-8")
         try:
             src.unlink()
         except OSError:
             pass
+        cover = out_mp4.with_name(out_mp4.stem + "_cover.jpg")
         job.outputs.append({"name": out_mp4.name, "url": "/hasil/" + out_mp4.name, "caption": caption,
+                            "cover": ("/hasil/" + cover.name) if cover.exists() else None, "title": plain_title,
                             "source_height": src_h, "seconds": round(e - s, 1), "aspect": o.get("aspect", "9:16")})
     job.set(f"Selesai! {len(job.outputs)} clip siap di folder 'hasil'.")
     job.progress = 1.0
@@ -1059,7 +1545,12 @@ class Handler(BaseHTTPRequestHandler):
             return self.send_file(f["path"]) if f else self.send_error(404)
         if path == "/logo.png":
             return self.send_file(LOGO)
-        for prefix, base in (("/web/", WEB), ("/work/", WORK), ("/hasil/", OUT)):
+        if path.startswith("/img/"):
+            kind = path.split("/")[2].split(".")[0]
+            return self.send_file(IMAGES.get(kind)) if kind in IMAGES else self.send_error(404)
+        if path == "/api/sfx":
+            return self.send_json({"sfx": EA.library("sfx"), "music": EA.library("musik")})
+        for prefix, base in (("/web/", WEB), ("/work/", WORK), ("/hasil/", OUT), ("/sfx/", SFX), ("/musik/", MUSIC)):
             if path.startswith(prefix):
                 p = self.safe(base, path[len(prefix):])
                 return self.send_file(p) if p else self.send_error(403)
@@ -1069,6 +1560,8 @@ class Handler(BaseHTTPRequestHandler):
             return self.send_json({"tools": tool_status(), "last": st.get("last", {}), "version": VERSION,
                                    "keys": {k: bool(v) for k, v in keys.items()}, "rules": st.get("rules", ""),
                                    "logo": LOGO.exists(), "default_font": EF.DEFAULT_FONT,
+                                   "images": {k: v.exists() for k, v in IMAGES.items()},
+                                   "presets": st.get("presets", {}),
                                    "encoders": [lbl for _, lbl in ENCODERS["list"]],
                                    "encoder_ids": [[e, lbl] for e, lbl in ENCODERS["list"]],
                                    "encoder_errors": ENCODERS.get("errors", {}),
@@ -1104,23 +1597,64 @@ class Handler(BaseHTTPRequestHandler):
                     log(f"deteksi wajah preview gagal: {ex}")
                 return self.send_json({"ok": True, "image": img + f"?v={int(time.time())}", "faces": faces,
                                        "detector": kind})
-            if path == "/api/logo":
+            if path in ("/api/logo", "/api/image"):
+                kind = data.get("kind", "logo")
+                target = IMAGES.get(kind)
+                if not target:
+                    raise UserError("Jenis gambar tidak dikenal.")
                 if data.get("remove"):
-                    if LOGO.exists():
-                        LOGO.unlink()
+                    if target.exists():
+                        target.unlink()
                     return self.send_json({"ok": True})
                 raw = data.get("data", "")
                 m = re.match(r"data:image/[\w.+-]+;base64,(.*)$", raw, flags=re.S)
                 if not m:
-                    raise UserError("File logo harus gambar (PNG/JPG/WEBP).")
-                tmp = WORK / "logo_upload"
+                    raise UserError("File harus gambar (PNG/JPG/WEBP).")
+                tmp = WORK / f"{kind}_upload"
                 tmp.write_bytes(base64.b64decode(m.group(1)))
                 r = subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-i", str(tmp), "-frames:v", "1",
-                                    "-pix_fmt", "rgba", str(LOGO)], capture_output=True, text=True)
+                                    "-pix_fmt", "rgba", str(target)], capture_output=True, text=True)
                 tmp.unlink(missing_ok=True)
-                if r.returncode != 0 or not LOGO.exists():
-                    raise UserError("Gambar logo tidak bisa dibaca.")
+                if r.returncode != 0 or not target.exists():
+                    raise UserError("Gambar tidak bisa dibaca.")
                 return self.send_json({"ok": True})
+            if path == "/api/audio-upload":
+                kind = "musik" if data.get("kind") == "musik" else "sfx"
+                m = re.match(r"data:[\w/.+-]*;base64,(.*)$", data.get("data", ""), flags=re.S)
+                if not m:
+                    raise UserError("File audio tidak terbaca.")
+                raw = base64.b64decode(m.group(1))
+                if len(raw) > 40 * 1024 * 1024:
+                    raise UserError("File audio terlalu besar (maksimal 40 MB).")
+                name = EA.save_upload(kind, data.get("name") or "audio.mp3", raw)
+                if not name:
+                    raise UserError("File itu bukan audio yang bisa diputar (coba MP3/WAV).")
+                return self.send_json({"ok": True, "id": name, "list": EA.library(kind)})
+            if path == "/api/preset":
+                name = re.sub(r"\s+", " ", str(data.get("name") or "")).strip()[:40]
+                if not name:
+                    raise UserError("Nama gaya kosong.")
+                st = load_settings()
+                pr = st.setdefault("presets", {})
+                if data.get("delete"):
+                    pr.pop(name, None)
+                else:
+                    pr[name] = {k: v for k, v in (data.get("opts") or {}).items()
+                                if k not in ("url", "clips", "cam", "prompt", "ai_key", "groq_key", "hook_ai_key")}
+                save_settings(st)
+                return self.send_json({"ok": True, "presets": pr})
+            if path == "/api/key":
+                prov = data.get("provider")
+                if prov not in ("gemini", "claude", "groq"):
+                    raise UserError("Penyedia AI tidak dikenal.")
+                st = load_settings()
+                key = (data.get("key") or "").strip()
+                if key:
+                    st.setdefault("keys", {})[prov] = key
+                else:
+                    (st.get("keys") or {}).pop(prov, None)
+                save_settings(st)
+                return self.send_json({"ok": True, "keys": {k: bool(v) for k, v in (st.get("keys") or {}).items()}})
             if path == "/api/render":
                 opts = data
                 if not opts.get("clips"):
@@ -1149,7 +1683,13 @@ class Handler(BaseHTTPRequestHandler):
                 gkey = (opts.pop("groq_key", "") or "").strip()
                 if gkey:
                     st.setdefault("keys", {})["groq"] = gkey
+                hkey = (opts.pop("hook_ai_key", "") or "").strip()
+                if hkey and opts.get("hook_ai") in ("gemini", "claude"):
+                    st.setdefault("keys", {})[opts["hook_ai"]] = hkey
                 st["last"] = {k: v for k, v in opts.items() if k not in ("url", "clips", "cam", "prompt")}
+                for raw in re.split(r"[,;\s]+", str(opts.get("punch_times") or "")):
+                    if raw and not re.fullmatch(r"[\d:.]+", raw):
+                        raise UserError(f"Waktu zoom kejut '{raw}' tidak dikenal. Contoh: 1:23:45, 0:12")
                 save_settings(st)
                 job = Job(opts)
                 JOBS[job.id] = job
@@ -1159,7 +1699,7 @@ class Handler(BaseHTTPRequestHandler):
                 job = JOBS.get(path.split("/")[3])
                 if not job or job.status != "cek_subtitle":
                     raise UserError("Tidak ada subtitle yang sedang menunggu dicek.")
-                job._review_result = data.get("chunks")
+                job._review_result = data
                 job._review_event.set()
                 return self.send_json({"ok": True})
             if path == "/api/open-folder":
