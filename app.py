@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-KlipKu 2 — alat clip YouTube & Twitch pribadi.
+KlipKu 4 — alat clip YouTube & Twitch pribadi.
 Masukkan link + menit mulai/selesai -> keluar video vertikal 9:16 (facecam besar di atas, gameplay di bawah)
 lengkap dengan subtitle otomatis (Whisper), judul hook, dan watermark.
 
@@ -37,7 +37,7 @@ WORK = APP / "work"
 OUT = APP / "hasil"
 SETTINGS = WORK / "settings.json"
 W, H = 1080, 1920
-VERSION = "2.4"
+VERSION = "4.0"
 
 WORK.mkdir(exist_ok=True)
 OUT.mkdir(exist_ok=True)
@@ -274,10 +274,16 @@ def get_info(url):
     return info
 
 
-def download_section(url, start, end, dest_noext, video_only=False, max_h=None, on_progress=None):
+def download_section(url, start, end, dest_noext, video_only=False, max_h=None, on_progress=None, preview_h=None):
     """Download hanya potongan yang dipilih. Jalur cepat: potong presisi + encode sementara superfast
-    (kualitas hampir tanpa rugi). Kalau jalur cepat gagal, otomatis ulang dengan cara standar."""
-    if video_only:
+    (kualitas hampir tanpa rugi). Kalau jalur cepat gagal, otomatis ulang dengan cara standar.
+    preview_h: mode pratinjau (resolusi kecil + encode ringan, supaya cepat diputar di browser)."""
+    if preview_h:
+        fmt = ["-f", f"bv*[height<={preview_h}]+ba/b[height<={preview_h}]/bv*+ba/b", "-S", f"res:{preview_h},fps:30",
+               "--merge-output-format", "mp4"]
+        fast_o = ("ffmpeg_o:-c:v libx264 -preset ultrafast -crf 26 -pix_fmt yuv420p -c:a aac -b:a 128k "
+                  "-movflags +faststart")
+    elif video_only:
         fmt = ["-f", f"bv*[height<={max_h or 720}]/bv*/b"]
         fast_o = "ffmpeg_o:-c:v libx264 -preset ultrafast -crf 20"
     else:
@@ -353,6 +359,109 @@ def make_preview(url, t):
     if not jpg.exists():
         raise UserError("Gagal mengambil gambar dari video.")
     return f"/work/{info['key']}/{jpg.name}"
+
+
+# ============================================================================ pratinjau clip (v4)
+# Sebelum menekan "Buat Clip", user bisa memutar potongan asli videonya di panel preview (9:16, lengkap
+# dengan layout, judul hook, watermark). Potongan diunduh kecil (480p) supaya cepat; disimpan di
+# work/<video>/pratinjau dan yang lama dibuang otomatis.
+PREVIEWS = {}
+PV_LOCK = threading.Lock()
+PV_KEEP = 12          # simpan maksimal sekian file pratinjau per video
+PV_MAX = 240.0        # durasi pratinjau maksimal (detik)
+
+
+def _browser_ok(path):
+    try:
+        out = subprocess.run(["ffprobe", "-v", "error", "-show_entries", "stream=codec_type,codec_name", "-of", "json",
+                              str(path)], capture_output=True, text=True, timeout=30).stdout
+        streams = json.loads(out).get("streams", [])
+    except Exception:  # noqa
+        return False
+    v = [x.get("codec_name") for x in streams if x.get("codec_type") == "video"]
+    a = [x.get("codec_name") for x in streams if x.get("codec_type") == "audio"]
+    return bool(v) and v[0] in ("h264", "vp9", "av1") and (not a or a[0] in ("aac", "opus", "mp3"))
+
+
+def _trim_previews(d):
+    files = sorted(d.glob("pv_*.mp4"), key=lambda p: p.stat().st_mtime, reverse=True)
+    for old in files[PV_KEEP:]:
+        try:
+            old.unlink()
+        except OSError:
+            pass
+
+
+def clip_preview_run(pid, url, s, e):
+    job = PREVIEWS[pid]
+    try:
+        with PV_LOCK:  # satu unduhan pratinjau dalam satu waktu (yang lain menunggu)
+            info = get_info(url)
+            dur = float(info.get("duration") or 0)
+            if dur:
+                e = min(e, dur)
+            if e - s < 0.5:
+                raise UserError("Waktu Selesai harus setelah Mulai.")
+            d = WORK / info["key"] / "pratinjau"
+            d.mkdir(parents=True, exist_ok=True)
+            name = f"pv_{int(round(s * 10))}_{int(round(e * 10))}"
+            out = d / f"{name}.mp4"
+            if out.exists() and out.stat().st_size > 1000:
+                os.utime(out)
+            else:
+                job.update(stage="menghubungi " + ("Twitch" if info.get("platform") == "twitch" else "YouTube"), pct=0.03)
+                src = download_section(url, s, e, d / f"{name}_dl", preview_h=480,
+                                       on_progress=lambda p, t="": job.update(
+                                           pct=0.05 + 0.85 * p, stage="mengunduh potongan 480p" + (f" ({t})" if t else "")))
+                if src.suffix.lower() == ".mp4" and _browser_ok(src):
+                    src.replace(out)
+                else:
+                    job.update(stage="menyiapkan video", pct=0.93)
+                    subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-i", str(src), "-c:v", "libx264", "-preset",
+                                    "ultrafast", "-crf", "26", "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "128k",
+                                    "-movflags", "+faststart", str(out)], check=False)
+                    try:
+                        src.unlink()
+                    except OSError:
+                        pass
+                if not out.exists() or out.stat().st_size < 1000:
+                    raise UserError("Gagal menyiapkan video preview.")
+                _trim_previews(d)
+            w, h, _fps, real = probe(out)
+        job.update(status="siap", pct=1.0, stage="siap", src=f"/work/{info['key']}/pratinjau/{out.name}",
+                   start=s, end=e, dur=real or (e - s), w=w, h=h)
+    except UserError as ex:
+        job.update(status="gagal", error=str(ex))
+    except Exception as ex:  # noqa
+        log("pratinjau gagal: " + traceback.format_exc()[-800:])
+        job.update(status="gagal", error=f"Gagal membuat preview: {ex}")
+
+
+def clip_preview_start(data):
+    url = norm_url(data.get("url", ""))
+    if not url:
+        raise UserError("Isi link YouTube / Twitch dulu (langkah 1).")
+    s = parse_time(str(data.get("start") or ""))
+    e = parse_time(str(data.get("end") or ""))
+    if e <= s:
+        raise UserError("Waktu Selesai harus setelah Mulai.")
+    if e - s > PV_MAX:
+        raise UserError(f"Preview maksimal {int(PV_MAX // 60)} menit. Perpendek dulu menit clipnya.")
+    key = (video_id(url), round(s, 1), round(e, 1))
+    for j in PREVIEWS.values():
+        if j.get("_key") == key and j.get("status") in ("jalan", "siap"):
+            return j
+    if len(PREVIEWS) > 40:  # buang catatan lama
+        for k in list(PREVIEWS)[:20]:
+            PREVIEWS.pop(k, None)
+    pid = uuid.uuid4().hex[:10]
+    PREVIEWS[pid] = {"id": pid, "status": "jalan", "pct": 0.0, "stage": "menunggu giliran", "_key": key}
+    threading.Thread(target=clip_preview_run, args=(pid, url, s, e), daemon=True, name=f"pv-{pid}").start()
+    return PREVIEWS[pid]
+
+
+def clip_preview_public(j):
+    return {k: v for k, v in j.items() if not k.startswith("_")}
 
 
 
@@ -1701,6 +1810,8 @@ class Handler(BaseHTTPRequestHandler):
             return self.send_file(job["file"], "video/mp4")
         if path in ("/", "/index.html"):
             return self.send_file(WEB / "index.html")
+        if path in ("/autopilot", "/autopilot.html"):
+            return self.send_file(WEB / "autopilot.html")
         if path.startswith("/fontfile/"):
             fid = path.split("/")[2].split(".")[0]
             f = EF.registry().get(fid)
@@ -1738,6 +1849,9 @@ class Handler(BaseHTTPRequestHandler):
         if path.startswith("/api/job/"):
             job = JOBS.get(path.split("/")[3])
             return self.send_json(job.public()) if job else self.send_json({"error": "job tidak ada"}, 404)
+        if path.startswith("/api/clip-preview/"):
+            j = PREVIEWS.get(path.split("/")[3])
+            return self.send_json(clip_preview_public(j)) if j else self.send_json({"error": "preview tidak ada"}, 404)
         self.send_error(404)
 
     def do_POST(self):
@@ -1746,6 +1860,9 @@ class Handler(BaseHTTPRequestHandler):
         path = urlparse(self.path).path
         try:
             data = self.read_json()
+            if path.startswith("/api/ap/"):
+                import autopilot.web as APW
+                return self.send_json(APW.api(sys.modules[__name__], path, data))
             if path == "/api/remote/start":
                 try:
                     res = ER.start(self.server.server_address[1], SIO, log)
@@ -1766,6 +1883,8 @@ class Handler(BaseHTTPRequestHandler):
                 ch = channel_settings(info.get("channel_id"))
                 return self.send_json({"ok": True, "info": info, "duration_text": fmt_time(info.get("duration") or 0),
                                        "saved_cam": ch.get("cam"), "saved_terms": ch.get("terms", "")})
+            if path == "/api/clip-preview":
+                return self.send_json(dict(clip_preview_public(clip_preview_start(data)), ok=True))
             if path == "/api/preview":
                 img = make_preview(data["url"], parse_time(data.get("time") or "0"))
                 faces, kind = [], None
@@ -1957,6 +2076,14 @@ def main():
     threading.Thread(target=worker, daemon=True).start()
     threading.Thread(target=EF.scan, daemon=True).start()
     threading.Thread(target=detect_encoders, daemon=True).start()
+    try:  # Autopilot (tangan): nyala otomatis kalau sudah dipasang & diaktifkan
+        import autopilot.runner as AP
+        AP.init(sys.modules[__name__])
+        if AP.cfg().get("enabled") and AP.ready():
+            AP.start(sys.modules[__name__])
+            log("Autopilot aktif: tersambung ke otak cloud.")
+    except Exception as ex:  # noqa
+        log(f"Autopilot tidak bisa dimulai: {ex}")
     port = 8765
     for p in range(8765, 8785):
         try:

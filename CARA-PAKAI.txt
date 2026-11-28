@@ -1,6 +1,29 @@
 ===================================================================
-  KLIPKU 2.4: Link YouTube / Twitch + menit  ->  clip siap upload
+  KLIPKU 4.0: Link YouTube / Twitch + menit  ->  clip siap upload
 ===================================================================
+
+YANG BARU DI VERSI 4.0: PREVIEW HASIL YANG BISA DIPUTAR
+- Layar preview di kanan sekarang bisa diputar seperti video jadi.
+  Isi link + menit clip, atur gayanya, lalu tekan tombol ▶ besar di
+  tengah layar preview. KlipKu mengunduh potongan clip itu ukuran kecil
+  (480p, beberapa detik), lalu memutarnya lengkap dengan: layout 9:16 /
+  facecam, judul hook (tampil sesuai pengaturan "Hook tampil"), intro +
+  efek kilat, watermark, logo, banner, progress bar, teks penutup.
+- Saat diputar: putar/jeda (tombol spasi), geser ke detik mana saja,
+  pilih Clip 1 / Clip 2 / ... kalau clipnya lebih dari satu, dan "Tutup
+  preview" untuk kembali. Ubah pengaturan di kiri (template hook, warna,
+  watermark, dll), preview langsung ikut berubah sambil tetap diputar.
+- Tombol "Awal video" / "Akhir video" di atas layar = lompat ke awal
+  (judul hook) atau ke detik-detik terakhir (teks penutup).
+- Yang baru muncul saat render (tidak ada di preview): subtitle asli,
+  sound effect, musik, potong jeda, zoom kejut, gerakan AI Kamera.
+
+YANG BARU DI VERSI 3.0: AUTOPILOT
+- Bot Telegram + otak di cloud (gratis, nyala 24 jam) yang memantau
+  channel, mencari momen terbaik dengan AI, merender clip di laptop,
+  lalu upload ke TikTok setelah kamu setujui.
+- Cara pasang & pakai: baca CARA-PAKAI-AUTOPILOT.txt, atau klik tombol
+  "🤖 Autopilot" di kanan atas KlipKu.
 
 YANG BARU DI VERSI 2.4: BIKIN CLIP DARI HP PAKAI LINK
 - Di HP buka https://projectgieclips.pages.dev (atau versi GitHub / Netlify).
@@ -96,8 +119,8 @@ A. UPDATE DARI VERSI 1 (kalau KlipKu sudah terpasang)
    Folder .venv, work, dan hasil kamu tetap aman.
 4. Klik dua kali 2-BUKA-KlipKu-Windows.bat.
    Pertama kali, KlipKu memasang komponen baru (OpenCV, fonttools) ±1-3 menit.
-5. Di jendela hitam harus muncul: "KlipKu versi 2.4 jalan di ...".
-   Pojok kanan atas halaman juga menulis "versi 2.4".
+5. Di jendela hitam harus muncul: "KlipKu versi 4.0 jalan di ...".
+   Pojok kanan atas halaman juga menulis "versi 4.0".
 
 INSTAL BARU (belum pernah pasang)
 1. Ekstrak ZIP, buka folder klipku, klik dua kali 1-INSTALL-Windows.bat
@@ -108,8 +131,9 @@ INSTAL BARU (belum pernah pasang)
 -------------------------------------------------------------------
 B. CARA PAKAI
 -------------------------------------------------------------------
-1. Tempel link VOD YouTube > Muat.
-2. Isi menit Mulai & Selesai (+ judul hook kalau mau).
+1. Tempel link VOD YouTube / Twitch > Muat.
+2. Isi menit Mulai & Selesai (+ judul hook kalau mau). Tekan ▶ di
+   layar preview (kanan) untuk memutar hasilnya sebelum Buat Clip.
 3. Format & kamera:
    - Pilih rasio: 9:16 / 16:9 / 1:1.
    - Pilih mode kamera:

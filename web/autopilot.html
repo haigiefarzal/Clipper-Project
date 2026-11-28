@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="data:,">
+<title>KlipKu Autopilot</title>
+<style>
+:root{--bg:#0b0d11;--card:#14171d;--line:#262b35;--txt:#e9edf3;--mut:#8b94a3;--acc:#ffd400;--ok:#3ddc84;--bad:#ff5c6c;--pur:#9b7bff}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--txt);font:15px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+header{display:flex;align-items:center;gap:12px;padding:14px 24px;border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--bg);z-index:5}
+header h1{margin:0;font-size:20px}header h1 span{color:var(--acc)}
+header a{margin-left:auto;color:var(--mut);text-decoration:none;border:1px solid var(--line);border-radius:20px;padding:6px 14px}
+main{max-width:860px;margin:0 auto;padding:20px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px 20px;margin-bottom:16px}
+.card h2{margin:0 0 6px;font-size:18px;display:flex;align-items:center;gap:10px}
+.num{background:var(--acc);color:#000;border-radius:50%;width:26px;height:26px;display:inline-flex;align-items:center;justify-content:center;font-size:14px;font-weight:800}
+.st{margin-left:auto;font-size:13px;font-weight:600;padding:3px 10px;border-radius:20px;background:#2a2f3a;color:var(--mut)}
+.st.ok{background:#123824;color:var(--ok)}.st.bad{background:#3a1419;color:var(--bad)}
+label{display:block;font-size:13px;color:var(--mut);margin:12px 0 4px}
+input[type=range]{width:100%;accent-color:var(--acc)}
+.check{display:flex;align-items:center;gap:8px;color:var(--txt);font-size:14px}
+input[type=text],input[type=password],select{width:100%;background:#0c0e12;border:1px solid var(--line);color:var(--txt);border-radius:9px;padding:10px 12px;font:inherit}
+button{background:var(--acc);color:#000;border:0;border-radius:9px;padding:10px 16px;font:inherit;font-weight:700;cursor:pointer}
+button.sec{background:#2a2f3a;color:var(--txt)}
+button:disabled{opacity:.5;cursor:wait}
+.row{display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap}.row>*{flex:1}.row>.fix{flex:0 0 auto}
+ol{margin:6px 0 0;padding-left:20px;color:#c9d0db}ol li{margin:3px 0}
+a{color:#8fc1ff}
+.muted{color:var(--mut);font-size:13px}
+.ok{color:var(--ok)}.bad{color:var(--bad)}
+.box{background:#0c0e12;border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-top:10px;font-size:13px}
+pre{white-space:pre-wrap;margin:0;font:12px/1.45 ui-monospace,Consolas,monospace;color:#c9d0db;max-height:260px;overflow:auto}
+.big{display:flex;align-items:center;gap:14px}
+.sw{position:relative;width:62px;height:34px;background:#2a2f3a;border-radius:20px;cursor:pointer;flex:0 0 auto}
+.sw::after{content:"";position:absolute;top:4px;left:4px;width:26px;height:26px;border-radius:50%;background:#fff;transition:.2s}
+.sw.on{background:var(--ok)}.sw.on::after{left:32px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:0 14px}
+code{background:#0c0e12;border:1px solid var(--line);border-radius:5px;padding:0 5px;font-size:12px}
+.lane{display:flex;justify-content:space-between;border-bottom:1px dashed var(--line);padding:4px 0}
+@media(max-width:640px){.grid2{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<header><h1>Klip<span>Ku</span> Autopilot</h1><a href="/">⬅ Editor clip</a></header>
+<main>
+  <div class="card">
+    <div class="big">
+      <div id="sw" class="sw" title="nyalakan / matikan Autopilot"></div>
+      <div><b id="swText">Autopilot mati</b><div class="muted" id="swSub">Selesaikan langkah 1–4 lalu nyalakan.</div></div>
+      <button class="sec fix" id="btnTest" style="margin-left:auto">🧪 Tes kirim ke Telegram</button>
+    </div>
+    <div class="box" id="lanes"></div>
+  </div>
+
+  <div class="card">
+    <h2><span class="num">1</span>Bot Telegram <span class="st" id="st1">belum</span></h2>
+    <ol>
+      <li>Di Telegram, buka <a href="https://t.me/BotFather" target="_blank">@BotFather</a> → kirim <code>/newbot</code>.</li>
+      <li>Nama bebas (misal <b>KlipKu Agie</b>), username harus diakhiri <code>bot</code> (misal <code>klipku_agie_bot</code>).</li>
+      <li>Salin <b>token</b> yang diberikan BotFather, tempel di bawah.</li>
+    </ol>
+    <div class="row"><div><label>Token bot</label><input type="password" id="tgToken" placeholder="123456789:AAH..."></div>
+      <button class="fix" id="btnTg">Simpan & cek</button></div>
+    <div class="row"><div><label>Username Telegram kamu (hanya akun ini yang boleh memerintah bot)</label><input type="text" id="owner" value="" placeholder="username Telegram kamu, tanpa @"></div>
+      <button class="fix" id="btnDetect">Deteksi akun saya</button></div>
+    <div class="muted" id="detectHint">Setelah token tersimpan: buka bot kamu di Telegram, tekan <b>START</b>, lalu klik <b>Deteksi akun saya</b>.</div>
+  </div>
+
+  <div class="card">
+    <h2><span class="num">2</span>Otak cloud (Cloudflare, gratis, nyala 24 jam) <span class="st" id="st2">belum</span></h2>
+    <ol>
+      <li>Daftar gratis di <a href="https://dash.cloudflare.com/sign-up" target="_blank">dash.cloudflare.com</a> (tanpa kartu kredit).</li>
+      <li>Buka <a href="https://dash.cloudflare.com/profile/api-tokens" target="_blank">My Profile → API Tokens</a> → <b>Create Token</b> → template <b>Edit Cloudflare Workers</b> → <b>Use template</b>.</li>
+      <li>Di bagian <b>Permissions</b> klik <b>+ Add more</b>: <code>Account</code> · <code>D1</code> · <code>Edit</code>. Account Resources: akun kamu. Lalu <b>Continue → Create Token</b> → salin.</li>
+      <li>Tempel di bawah lalu klik <b>Pasang otak</b>. KlipKu yang membuat database, mengunggah otak, memasang jadwal 5 menit, dan menyambungkan bot.</li>
+    </ol>
+    <div class="grid2">
+      <div><label>API token Cloudflare</label><input type="password" id="cfToken" placeholder="tempel token"></div>
+      <div><label>Account ID (opsional, kosongkan = otomatis)</label><input type="text" id="cfAcc" placeholder="otomatis"></div>
+    </div>
+    <div class="row" style="margin-top:12px"><button class="fix" id="btnInstall">☁️ Pasang otak</button><span class="muted" id="cloudUrl"></span></div>
+    <div class="box" id="installBox" style="display:none"><pre id="installLog"></pre></div>
+  </div>
+
+  <div class="card">
+    <h2><span class="num">3</span>Otak AI <span class="st" id="st3">belum</span></h2>
+    <div class="muted">Gemini <b>menonton</b> potongan kandidat (gambar + suara) lalu memilih momen & menulis judul. Ambil API key gratis di
+      <a href="https://aistudio.google.com/apikey" target="_blank">aistudio.google.com/apikey</a>. Tanpa Gemini, Autopilot tetap jalan pakai sinyal chat & suara saja (kurang pintar).</div>
+    <div class="grid2">
+      <div><label>API key Gemini <span id="kG" class="muted"></span></label><input type="password" id="keyGemini" placeholder="AIza..."></div>
+      <div><label>API key Claude (opsional) <span id="kC" class="muted"></span></label><input type="password" id="keyClaude" placeholder="sk-ant-..."></div>
+      <div><label>Cara kerja AI</label><select id="aiEditor"><option value="gemini">Gemini saja (gratis/hemat)</option><option value="claude">Gemini menonton + Claude merapikan & menilai ulang</option></select></div>
+      <div><label>Model Gemini</label><input type="text" id="gModel" value="gemini-flash-latest"></div>
+      <div><label>Skor minimal momen (0–100) <b id="vMin"></b></label><input type="range" id="minSkor" min="30" max="90" value="55"></div>
+      <div><label>Kandidat dikirim per video (bawaan channel baru) <b id="vPer"></b></label><input type="range" id="perVideo" min="1" max="10" value="5"></div>
+    </div>
+    <div class="row" style="margin-top:12px"><button class="fix" id="btnAI">Simpan</button><span class="muted" id="aiMsg"></span></div>
+  </div>
+
+  <div class="card">
+    <h2><span class="num">4</span>Layanan upload TikTok <span class="st" id="st4">belum</span></h2>
+    <label>Layanan</label>
+    <select id="prov"><option value="zernio">Zernio, 2 akun gratis selamanya (termasuk TikTok) ⭐</option><option value="uploadpost">Upload-Post, TikTok mulai $16–24/bulan</option></select>
+    <div id="zBox">
+      <ol>
+        <li>Daftar di <a href="https://zernio.com/signup" target="_blank">zernio.com</a> (gratis, tanpa kartu).</li>
+        <li>Di dashboard Zernio: <b>Connect</b> → <b>TikTok</b> → login & izinkan akun TikTok kamu.</li>
+        <li>Buat <b>API key</b> (menu Settings / API Keys) → tempel di bawah → <b>Cek & ambil akun</b>.</li>
+      </ol>
+      <label>API key Zernio</label><input type="password" id="zKey" placeholder="sk_...">
+    </div>
+    <div id="uBox" style="display:none">
+      <ol><li>Daftar di <a href="https://www.upload-post.com" target="_blank">upload-post.com</a>, pilih paket yang termasuk TikTok.</li>
+        <li>Buat profil, sambungkan TikTok, salin API key.</li></ol>
+      <label>API key Upload-Post</label><input type="password" id="uKey" placeholder="API key">
+    </div>
+    <div class="row" style="margin-top:12px"><button class="fix" id="btnAcc">Cek & ambil akun</button>
+      <div><select id="acc"><option value="">- akun TikTok -</option></select></div></div>
+    <div class="grid2">
+      <div><label>Siapa yang bisa melihat</label><select id="privacy"><option value="PUBLIC_TO_EVERYONE">Semua orang (publik)</option><option value="SELF_ONLY">Hanya saya (untuk tes)</option><option value="MUTUAL_FOLLOW_FRIENDS">Teman</option><option value="FOLLOWER_OF_CREATOR">Pengikut</option></select></div>
+      <div><label class="check" style="margin-top:34px"><input type="checkbox" id="credit" checked> Tambahkan "🎥 Sumber: channel" di caption</label></div>
+    </div>
+    <div class="muted">Akun TikTok yang baru tersambung biasanya akun Business: TikTok hanya mengizinkan posting <b>publik</b> lewat API.</div>
+    <div class="row" style="margin-top:12px"><button class="fix" id="btnUpSave">Simpan</button><span class="muted" id="upMsg"></span></div>
+  </div>
+
+  <div class="card">
+    <h2>📖 Cara pakai harian (di Telegram)</h2>
+    <ol>
+      <li><code>/tambah https://www.youtube.com/@windahbasudara</code> atau <code>/tambah https://www.twitch.tv/nama</code></li>
+      <li>Saat ada video/VOD baru: bot kirim 🔔 → laptop menganalisis → kartu momen (video pendek + skor + judul).</li>
+      <li>Tekan <b>🎬 Buat clip</b> → laptop render dengan gaya channel → clip + 3 caption dikirim.</li>
+      <li>Pilih caption (atau <b>reply</b> dengan caption sendiri), atur 🕒 jam tayang, tekan <b>✅ Upload</b>. Ada 60 detik untuk ↩️ batal.</li>
+      <li><code>/kuota 5</code>, <code>/jarak 60</code>, <code>/jamramai 12,17,19,21</code>, <code>/jadwal</code>, <code>/cadangan</code>, <code>/status</code>.</li>
+    </ol>
+    <div class="muted">Laptop mati? Otak cloud tetap memantau & menerima perintah; tugas menunggu sampai KlipKu dibuka lagi.</div>
+  </div>
+</main>
+<script>
+const $=s=>document.querySelector(s);
+async function api(p,b={}){ const r=await fetch(p,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(b)}); const d=await r.json().catch(()=>({ok:false,error:"jawaban rusak"})); if(!d.ok) throw new Error(d.error||"gagal"); return d; }
+function st(id,ok,text){ const e=$(id); e.className="st "+(ok?"ok":ok===false?"bad":""); e.textContent=text; }
+function busy(btn,on,txt){ btn.disabled=on; if(on){ btn.dataset.t=btn.textContent; btn.textContent=txt||"⏳..."; } else if(btn.dataset.t) btn.textContent=btn.dataset.t; }
+let S=null, first=true;
+async function refresh(){
+  try{ S=await api("/api/ap/status"); }catch(e){ return; }
+  const c=S.cfg;
+  st("#st1",c.tg&&c.owner_id?true:null, c.tg?(c.owner_id?`✅ @${c.bot} → ${c.owner_name||c.owner_id}`:`@${c.bot} · akun belum terdeteksi`):"belum");
+  if(c.tg) $("#detectHint").innerHTML=`Buka <a href="https://t.me/${c.bot}" target="_blank">t.me/${c.bot}</a>, tekan <b>START</b>, lalu klik <b>Deteksi akun saya</b>.`;
+  st("#st2",c.worker_url?true:null,c.worker_url?"✅ terpasang":"belum");
+  $("#cloudUrl").textContent=c.worker_url?`Alamat otak: ${c.worker_url}`:"";
+  st("#st3",S.keys.gemini?true:null,S.keys.gemini?(c.ai_editor==="claude"&&S.keys.claude?"✅ Gemini + Claude":"✅ Gemini"):"tanpa AI");
+  $("#kG").textContent=S.keys.gemini?"(tersimpan)":""; $("#kC").textContent=S.keys.claude?"(tersimpan)":"";
+  st("#st4",S.upload_ready?true:null,S.upload_ready?`✅ ${c.upload_provider==="uploadpost"?"Upload-Post":"Zernio"}${c.zernio_account_name?" · "+c.zernio_account_name:""}`:"belum");
+  if(first){ first=false; $("#owner").value=c.owner_username||""; $("#aiEditor").value=c.ai_editor; $("#gModel").value=c.gemini_model; $("#minSkor").value=c.min_skor; $("#perVideo").value=c.per_video;
+    $("#prov").value=c.upload_provider; $("#privacy").value=c.tiktok_privacy; $("#credit").checked=c.caption_credit!==false; if(c.cf_account) $("#cfAcc").value=c.cf_account;
+    if(c.zernio_account){ $("#acc").innerHTML=`<option value="${c.zernio_account}">${c.zernio_account_name||c.zernio_account}</option>`; }
+    if(c.uploadpost_user&&c.upload_provider==="uploadpost"){ $("#acc").innerHTML=`<option value="${c.uploadpost_user}">${c.uploadpost_user}</option>`; }
+    provUi(); labels(); }
+  const s=S.state||{}, on=c.enabled&&s.running;
+  $("#sw").classList.toggle("on",!!c.enabled);
+  $("#swText").textContent=c.enabled?(s.connected?"🟢 Autopilot aktif, tersambung ke otak cloud":"🟡 Autopilot aktif, menyambung..."):"Autopilot mati";
+  $("#swSub").textContent=c.enabled?(s.connected?`Terakhir kontak ${Math.max(0,Math.round(Date.now()/1000-s.last_poll))} detik lalu. Biarkan jendela hitam KlipKu tetap terbuka.`:(s.last_error||"")):"Selesaikan langkah 1–4 lalu nyalakan.";
+  const lanes=s.lanes||{}; $("#lanes").innerHTML=Object.keys(lanes).length?Object.entries(lanes).map(([k,v])=>`<div class="lane"><span>${k==="analisis"?"🔍 Jalur analisis":"🎬 Jalur produksi"}</span><b>${v}</b></div>`).join("")+`<pre style="margin-top:8px">${(s.log||[]).slice(-12).join("\n")}</pre>`:'<span class="muted">Belum jalan.</span>';
+  const I=S.install; if(I.running||I.log.length||I.error){ $("#installBox").style.display="block"; $("#installLog").textContent=I.log.join("\n")+(I.error?`\n\n❌ ${I.error}`:"")+(I.done?"\n\n✅ Selesai!":""); $("#btnInstall").disabled=I.running; $("#btnInstall").textContent=I.running?"⏳ Memasang...":"☁️ Pasang otak"; }
+}
+function provUi(){ const u=$("#prov").value==="uploadpost"; $("#zBox").style.display=u?"none":""; $("#uBox").style.display=u?"":"none"; }
+function labels(){ $("#vMin").textContent=$("#minSkor").value; $("#vPer").textContent=$("#perVideo").value; }
+$("#prov").onchange=provUi; $("#minSkor").oninput=labels; $("#perVideo").oninput=labels;
+$("#btnTg").onclick=async e=>{ busy(e.target,true); try{ const d=await api("/api/ap/telegram",{token:$("#tgToken").value}); $("#tgToken").value=""; alert(`✅ Bot @${d.bot} tersambung. Sekarang buka bot itu di Telegram, tekan START, lalu klik "Deteksi akun saya".`); }catch(x){ alert(x.message); } busy(e.target,false); refresh(); };
+$("#btnDetect").onclick=async e=>{ busy(e.target,true); try{ const d=await api("/api/ap/detect",{username:$("#owner").value}); alert(`✅ Terdeteksi: ${d.name} (@${d.username||"-"}), ID ${d.id}. Cek Telegram, bot sudah menyapa.`); }catch(x){ alert(x.message); } busy(e.target,false); refresh(); };
+$("#btnInstall").onclick=async e=>{ try{ await api("/api/ap/install",{cf_token:$("#cfToken").value,cf_account:$("#cfAcc").value}); $("#cfToken").value=""; }catch(x){ alert(x.message); } refresh(); };
+$("#btnAI").onclick=async e=>{ busy(e.target,true); try{ await api("/api/ap/keys",{gemini:$("#keyGemini").value,claude:$("#keyClaude").value}); await api("/api/ap/save",{ai_editor:$("#aiEditor").value,gemini_model:$("#gModel").value.trim()||"gemini-flash-latest",min_skor:+$("#minSkor").value,per_video:+$("#perVideo").value}); $("#keyGemini").value=""; $("#keyClaude").value=""; $("#aiMsg").textContent="✅ Tersimpan"; }catch(x){ alert(x.message); } busy(e.target,false); refresh(); };
+$("#btnAcc").onclick=async e=>{ busy(e.target,true,"⏳ Mengecek..."); try{ const u=$("#prov").value==="uploadpost"; const d=await api("/api/ap/upload",{provider:$("#prov").value,zernio_key:u?"":$("#zKey").value,uploadpost_key:u?$("#uKey").value:""}); $("#zKey").value=""; $("#uKey").value="";
+  const list=u?d.accounts:d.accounts.filter(a=>a.platform==="tiktok"); if(!list.length){ alert(u?"Belum ada profil di Upload-Post.":"API key benar, tapi belum ada akun TikTok tersambung di Zernio. Sambungkan TikTok dulu di dashboard Zernio."); }
+  $("#acc").innerHTML=list.map(a=>`<option value="${a.id}">${a.name||a.id}${a.active===false?" (tidak aktif)":""}</option>`).join("")||'<option value="">- tidak ada -</option>'; $("#upMsg").textContent=list.length?"Pilih akun lalu Simpan.":""; }catch(x){ alert(x.message); } busy(e.target,false); };
+$("#btnUpSave").onclick=async e=>{ const u=$("#prov").value==="uploadpost", sel=$("#acc"); if(!sel.value) return alert("Klik 'Cek & ambil akun' lalu pilih akun TikTok dulu.");
+  try{ await api("/api/ap/save",{upload_provider:$("#prov").value,tiktok_privacy:$("#privacy").value,caption_credit:$("#credit").checked,
+    ...(u?{uploadpost_user:sel.value}:{zernio_account:sel.value,zernio_account_name:sel.options[sel.selectedIndex].text})}); $("#upMsg").textContent="✅ Tersimpan"; }catch(x){ alert(x.message); } refresh(); };
+$("#sw").onclick=async()=>{ const on=!$("#sw").classList.contains("on"); try{ await api("/api/ap/enable",{on}); }catch(x){ alert(x.message); } refresh(); };
+$("#btnTest").onclick=async e=>{ busy(e.target,true); try{ const d=await api("/api/ap/test"); alert("✅ Pesan tes terkirim ke Telegram.\n\n"+(d.status||"").replace(/<[^>]+>/g,"")); }catch(x){ alert(x.message); } busy(e.target,false); };
+refresh(); setInterval(refresh,3000);
+</script>
+</body>
+</html>

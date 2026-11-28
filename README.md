@@ -4,7 +4,7 @@
 
 KlipKu adalah aplikasi clipper yang jalan di komputer kamu sendiri. Tempel link VOD YouTube atau Twitch (VOD maupun clip), pilih menitnya, dan KlipKu membuat clip vertikal (9:16), landscape (16:9), atau kotak (1:1) lengkap dengan subtitle otomatis, judul hook, kamera AI, dan watermark, tanpa perlu edit manual.
 
-![Versi](https://img.shields.io/badge/versi-2.4-ff3d7f)
+![Versi](https://img.shields.io/badge/versi-4.0-ff3d7f)
 ![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS-blue)
 ![Python](https://img.shields.io/badge/python-3.10%2B-yellow)
 ![Lisensi](https://img.shields.io/badge/lisensi-MIT-green)
@@ -37,6 +37,8 @@ Laptop yang mengunduh potongannya (YouTube tidak mengizinkan website mengunduh l
 
 | Fitur | Keterangan |
 |---|---|
+| ▶️ **Preview hasil yang bisa diputar** *(PC, baru di 4.0)* | Tekan ▶ di layar preview: clip diputar seperti video jadi (layout, judul hook, gaya, intro, watermark, banner, progress bar, teks penutup), bisa dijeda & digeser, sebelum kamu klik **Buat Clip** |
+| 🤖 **Autopilot + bot Telegram** *(PC)* | Otak gratis di Cloudflare (nyala 24 jam) memantau channel; laptop mencari momen (chat, suara, Gemini menonton kandidat), render, lalu upload ke TikTok lewat Zernio setelah kamu tekan ✅. Panduan: [CARA-PAKAI-AUTOPILOT.txt](CARA-PAKAI-AUTOPILOT.txt) |
 | 🟣 **YouTube & Twitch** *(PC)* | Link YouTube, VOD Twitch (`twitch.tv/videos/...`), atau clip Twitch; kredit `twitch.tv/nama` otomatis |
 | 📐 **3 rasio** | 9:16, 16:9, 1:1, zoom dan geser bebas, area kosong otomatis di-blur |
 | 🤖 **AI Kamera** | Kamera otomatis mengikuti siapa yang bicara/bereaksi, lalu balik ke karakter utama |
@@ -98,10 +100,11 @@ Browser akan terbuka otomatis di **http://127.0.0.1:8765**. Biarkan jendela hita
 
 1. Tempel link VOD YouTube / Twitch (atau clip Twitch) → **Muat**.
 2. Isi menit **Mulai** & **Selesai** (+ judul hook kalau mau).
-3. Pilih rasio dan mode kamera (Tengah / AI Kamera / Facecam + Gameplay).
-4. Atur subtitle, isi **Kata khusus** dengan nama penting (contoh: `Windah Basudara, UTBK`) supaya lebih akurat.
-5. Pilih template judul hook (tarik posisinya di preview), lalu watermark, logo, banner, sound effect, dan efek tambahan.
-6. Klik **Buat Clip**. Hasilnya ada di folder **`hasil/`**.
+3. Tekan **▶ di layar preview** (kanan) untuk memutar hasilnya dulu sebelum render.
+4. Pilih rasio dan mode kamera (Tengah / AI Kamera / Facecam + Gameplay).
+5. Atur subtitle, isi **Kata khusus** dengan nama penting (contoh: `Windah Basudara, UTBK`) supaya lebih akurat.
+6. Pilih template judul hook (tarik posisinya di preview), lalu watermark, logo, banner, sound effect, dan efek tambahan.
+7. Klik **Buat Clip**. Hasilnya ada di folder **`hasil/`**.
 
 📖 Panduan lengkap (termasuk tips & troubleshooting): **[CARA-PAKAI.txt](CARA-PAKAI.txt)**
 
@@ -116,8 +119,11 @@ Browser akan terbuka otomatis di **http://127.0.0.1:8765**. Biarkan jendela hita
 ├── engine_hook.py          # Template judul hook, banner, progress bar, teks penutup
 ├── engine_audio.py         # Sound effect, musik, zoom kejut, potong jeda, volume
 ├── engine_remote.py        # Sambungkan HP (tunnel aman + kunci)
+├── autopilot/              # Tangan Autopilot: analisis momen, render, upload, kirim media ke Telegram
+├── cloud/                  # Otak Autopilot: Cloudflare Worker (otak.js) + skema database D1
 ├── functions/              # Buku alamat HP (Cloudflare Pages Function)
 ├── engine_fonts.py         # Pengelola font
+├── elevenlabs_tts.py       # (opsional) bikin suara/voice-over AI lewat ElevenLabs dari terminal
 ├── web/index.html          # Tampilan aplikasi PC
 ├── docs/                   # KlipKu Web (GitHub Pages): Mediabunny + Transformers.js + YuNet
 ├── fonts/                  # 21 font bawaan (SIL OFL 1.1) + lisensinya
@@ -130,7 +136,9 @@ Browser akan terbuka otomatis di **http://127.0.0.1:8765**. Biarkan jendela hita
 └── 2-BUKA-KlipKu-*.bat/.command
 ```
 
-Folder `work/` (pengaturan & cache) dan `hasil/` (video jadi) dibuat otomatis saat aplikasi jalan dan **tidak** ikut di-upload.
+Folder `work/` (pengaturan, cache & potongan preview) dan `hasil/` (video jadi) dibuat otomatis saat aplikasi jalan dan **tidak** ikut di-upload.
+
+Riwayat perubahan tiap versi: **[CHANGELOG.md](CHANGELOG.md)**
 
 ---
 
@@ -140,6 +148,7 @@ Folder `work/` (pengaturan & cache) dan `hasil/` (video jadi) dibuat otomatis sa
 - **Error download / 403 / "Sign in to confirm"** → tutup & buka lagi (yt-dlp update otomatis), atau tunggu 10–30 menit.
 - **Font baru tidak muncul** → klik tombol ↻ di sebelah pencarian font.
 - **Halaman tidak terbuka** → buka manual http://127.0.0.1:8765
+- **Preview ▶ lama "menyiapkan"** → KlipKu sedang mengunduh potongan kecil (480p) clip itu; tergantung internet, biasanya beberapa detik.
 
 ---
 

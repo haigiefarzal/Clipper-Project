@@ -1,0 +1,124 @@
+===================================================================
+  KLIPKU AUTOPILOT, cara pasang & cara pakai
+===================================================================
+
+APA INI?
+- OTAK (cloud gratis Cloudflare, nyala 24 jam): bot Telegram kamu,
+  pemantau channel YouTube tiap 5 menit, antrean tugas, kuota & jadwal.
+- TANGAN (laptop kamu, KlipKu): cari momen terbaik (chat replay, suara
+  heboh, subtitle, lalu Gemini MENONTON potongannya), render clip, upload.
+- UPLOAD: lewat layanan resmi (Zernio, gratis 2 akun termasuk TikTok).
+- Tidak ada yang terposting tanpa kamu tekan ✅ di Telegram.
+- Laptop mati? Otak tetap jalan & mencatat tugas. Begitu KlipKu dibuka
+  lagi, tugas yang menunggu langsung dikerjakan.
+
+-------------------------------------------------------------------
+A. PASANG (sekali saja, ±15 menit)
+-------------------------------------------------------------------
+Buka KlipKu seperti biasa (2-BUKA-KlipKu-Windows.bat), lalu klik
+tombol ungu "🤖 Autopilot" di kanan atas. Ikuti 4 langkah di sana:
+
+1. BOT TELEGRAM
+   - Di Telegram buka @BotFather -> kirim /newbot
+   - Nama bebas (misal: KlipKu Agie), username harus berakhiran "bot"
+     (misal: klipku_agie_bot).
+   - Salin token -> tempel di KlipKu -> "Simpan & cek".
+   - Buka bot barumu di Telegram -> tekan START.
+   - Di KlipKu, isi username Telegram kamu (tanpa @) -> "Deteksi akun saya".
+     Bot akan menyapa kamu. Hanya akun itu yang bisa memerintah bot.
+
+2. OTAK CLOUD (Cloudflare, gratis)
+   - Daftar di dash.cloudflare.com (gratis, tanpa kartu kredit).
+   - My Profile -> API Tokens -> Create Token -> template
+     "Edit Cloudflare Workers" -> Use template.
+   - Permissions: klik "+ Add more" -> Account | D1 | Edit.
+   - Continue to summary -> Create Token -> salin token.
+   - Tempel di KlipKu -> "Pasang otak". Tunggu sampai muncul "Selesai!".
+     Bot mengirim "Otak KlipKu terpasang di cloud".
+
+3. OTAK AI
+   - Ambil API key gratis di aistudio.google.com/apikey -> tempel di
+     "API key Gemini" -> Simpan.
+   - Claude opsional (berbayar terpisah): kalau diisi dan dipilih
+     "Gemini + Claude", Claude ikut menilai ulang & merapikan judul.
+
+4. LAYANAN UPLOAD TIKTOK
+   - Daftar di zernio.com (gratis) -> Connect -> TikTok -> izinkan.
+   - Buat API key di Zernio -> tempel -> "Cek & ambil akun" -> pilih
+     akun TikTok -> Simpan.
+   - Catatan: akun TikTok yang tersambung lewat API biasanya hanya boleh
+     posting PUBLIK.
+
+Terakhir: nyalakan saklar Autopilot (hijau) dan klik
+"Tes kirim ke Telegram". Kalau pesan tes masuk, semuanya tersambung.
+
+-------------------------------------------------------------------
+B. PAKAI SEHARI-HARI (semua dari Telegram)
+-------------------------------------------------------------------
+1. Tambah channel yang mau dipantau:
+     /tambah https://www.youtube.com/@windahbasudara
+     /tambah https://www.twitch.tv/namastreamer
+   Video lama tidak diproses, hanya video/VOD BARU setelah ditambahkan.
+   Atur per channel lewat /channel: auto-analisis ON/OFF, maksimal
+   momen per video, Gaya (pakai "Gaya tersimpan" dari KlipKu), pause.
+
+2. Saat ada video baru:
+   🔔 bot memberi tahu -> laptop menganalisis (5–20 menit, tergantung
+   panjang video) -> datang KARTU MOMEN: video pendek momennya, menit,
+   kategori, skor, judul hook.
+   - 🎬 Buat clip  -> laptop render pakai gaya channel itu
+   - ⏭ Lewati
+   - "🎬 Buat semua" di pesan ringkasan
+
+3. Clip jadi -> dikirim ke Telegram dengan 3 pilihan caption:
+   - Tekan 1️⃣ 2️⃣ 3️⃣ untuk memilih, atau
+   - BALAS (reply) pesan clip dengan caption kamu sendiri.
+   - 🕒 pilih jam tayang: secepatnya / jam ramai / jam tertentu
+   - ✂️ Edit: geser awal/akhir 2 detik lalu Render ulang
+   - 🎭 Caption lain: AI menulis 3 caption baru
+   - ✅ Upload ke TikTok -> ada 60 detik untuk ↩️ Batal
+   - 💾 Cadangan (simpan dulu) / ❌ Buang
+
+4. Clip manual tanpa menunggu pemantau:
+   - Kirim link video YouTube/Twitch ke bot -> "Cari momen otomatis", atau
+   - /clip <link> 1:23:40-1:24:30 Judul hook kamu
+
+PERINTAH LAIN
+   /status      kondisi sistem, laptop online/offline, kuota hari ini
+   /kuota 5     maksimal posting per hari (1–15). Lebihnya otomatis
+                digeser ke hari berikutnya.
+   /jarak 60    jarak minimal antar posting (menit)
+   /jamramai 12,17,19,21   jam tayang favorit (WIB)
+   /jadwal      posting yang sudah terjadwal
+   /cadangan    clip yang belum diposting
+   /antrian     tugas yang menunggu laptop
+   /pause /lanjut   jeda / lanjut pemantauan otomatis
+   /stop        batalkan semua tugas yang menunggu + jeda
+
+-------------------------------------------------------------------
+C. TIPS
+-------------------------------------------------------------------
+- Biarkan jendela hitam KlipKu terbuka selama mau dipakai.
+- Atur tampilan clip di KlipKu (template hook, subtitle, watermark,
+  SFX), lalu "💾 Simpan gaya sekarang" dengan nama channel. Pilih gaya
+  itu untuk channel di Telegram (/channel -> 🎨 Gaya).
+- Layout Facecam: atur kotak facecam sekali untuk channel itu di KlipKu
+  (ambil gambar + tarik kotak), render 1 clip manual. Setelah itu
+  Autopilot memakai posisi yang sama.
+- VOD Twitch cepat hilang (7/14/60 hari) -> biarkan auto-analisis ON.
+- Gemini gratis punya batas harian. Kalau habis, analisis tetap jalan
+  pakai sinyal chat & suara (kurang pintar) dan bot memberi tahu.
+- Etika: clip hanya channel yang mengizinkan, kredit sumber otomatis
+  ditambahkan di caption.
+
+-------------------------------------------------------------------
+D. KALAU ADA MASALAH
+-------------------------------------------------------------------
+- Bot diam: buka KlipKu -> Autopilot. Status merah? Klik "Pasang otak"
+  lagi (aman, data tidak hilang).
+- "Laptop belum online": buka KlipKu di laptop.
+- Upload gagal "API key ditolak": cek langkah 4.
+- Analisis gagal "Sign in to confirm": YouTube membatasi sementara,
+  otomatis dicoba lagi 15 menit kemudian.
+- Token Cloudflare "kurang izin": buat token baru, pastikan ada
+  izin D1 · Edit.

@@ -22,3 +22,9 @@ musik/*
 .DS_Store
 Thumbs.db
 desktop.ini
+
+# Rahasia & pengaturan lokal (jangan pernah ikut ke GitHub)
+.env
+.env.*
+.claude/settings.local.json
+*.log
